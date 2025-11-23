@@ -3,7 +3,7 @@ const API_URL = 'https://api.jikan.moe/v4';
 // CAMBIA ESTA URL CUANDO SUBAS TU SERVIDOR A RENDER
 // Si estás en tu PC, usa localhost. Si ya lo subiste, pon la URL de Render aquí.
 // Ejemplo: 'https://mi-anime-server.onrender.com/api'
-const BACKEND_URL = 'http://localhost:3000/api';
+const BACKEND_URL = 'https://mi-anime-api.onrender.com/api';
 
 // DOM Elements
 const mainContent = document.getElementById('mainContent');
