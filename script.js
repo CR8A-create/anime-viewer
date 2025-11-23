@@ -14,9 +14,11 @@ const searchInput = document.getElementById('searchInput');
 const searchBtn = document.getElementById('searchBtn');
 const videoPlayer = document.getElementById('videoPlayer');
 const placeholderMessage = document.getElementById('placeholderMessage');
+const episodesList = document.getElementById('episodesList');
 
 // State
 let currentAnime = null;
+let currentSlug = null;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -128,7 +130,7 @@ function renderAnimeGrid(animeList, container) {
 }
 
 // Player Logic
-function openPlayer(anime) {
+async function openPlayer(anime) {
     currentAnime = anime;
     mainContent.classList.add('hidden');
     playerView.classList.remove('hidden');
@@ -143,39 +145,83 @@ function openPlayer(anime) {
     `;
     document.getElementById('animeInfoDetailed').innerHTML = detailsHtml;
 
-    // Try to fetch video from our local server
-    fetchVideoLinks(anime.title);
+    // Reset Player UI
+    videoPlayer.src = '';
+    videoPlayer.style.display = 'none';
+    placeholderMessage.style.display = 'flex';
+    placeholderMessage.querySelector('p').textContent = 'Cargando lista de episodios...';
+    episodesList.innerHTML = '<div class="loading">Cargando...</div>';
+    document.querySelector('.server-list').innerHTML = ''; // Clear servers
+
+    // 1. Fetch Episode List from Backend
+    try {
+        const response = await fetch(`${BACKEND_URL}/anime/${encodeURIComponent(anime.title)}`);
+        const data = await response.json();
+
+        if (data.success && data.episodes.length > 0) {
+            currentSlug = data.slug; // Save slug for video fetching
+            renderEpisodes(data.episodes);
+
+            // Auto-play first episode (latest)
+            fetchVideoLinks(data.episodes[0].number);
+
+            // Highlight first episode
+            // We do this after rendering, handled in renderEpisodes logic or here
+        } else {
+            episodesList.innerHTML = '<p>No se encontraron episodios.</p>';
+            placeholderMessage.querySelector('p').textContent = 'No se encontraron episodios en AnimeFLV.';
+        }
+    } catch (error) {
+        console.error('Error fetching episodes:', error);
+        episodesList.innerHTML = '<p>Error al cargar episodios.</p>';
+        placeholderMessage.querySelector('p').textContent = 'Error al conectar con el servidor.';
+    }
 }
 
-async function fetchVideoLinks(animeTitle) {
-    // Reset UI
+function renderEpisodes(episodes) {
+    episodesList.innerHTML = '';
+    episodes.forEach((ep, index) => {
+        const btn = document.createElement('div');
+        btn.className = 'episode-btn';
+        if (index === 0) btn.classList.add('active'); // First one active by default
+        btn.textContent = `Episodio ${ep.number}`;
+        btn.onclick = () => {
+            // Update active state
+            document.querySelectorAll('.episode-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            fetchVideoLinks(ep.number);
+        };
+        episodesList.appendChild(btn);
+    });
+}
+
+async function fetchVideoLinks(episodeNumber) {
+    if (!currentSlug) return;
+
+    // Reset Player for new episode
     placeholderMessage.style.display = 'flex';
     videoPlayer.style.display = 'none';
-    placeholderMessage.querySelector('p').textContent = 'Buscando enlaces en AnimeFLV...';
+    placeholderMessage.querySelector('p').textContent = `Cargando Episodio ${episodeNumber}...`;
+    document.querySelector('.server-list').innerHTML = '<span style="color:#888">Cargando servidores...</span>';
 
     try {
-        // Call our local Node.js server
-        // Encode the title to handle special characters
-        const response = await fetch(`${BACKEND_URL}/episode/${encodeURIComponent(animeTitle)}`);
+        const response = await fetch(`${BACKEND_URL}/videos/${currentSlug}/${episodeNumber}`);
         const data = await response.json();
 
         if (data.success && data.servers.length > 0) {
-            // We found links!
-            placeholderMessage.querySelector('p').textContent = '¡Enlaces encontrados! Selecciona un servidor.';
-            // Store links globally or in a way we can access them in changeServer
+            placeholderMessage.querySelector('p').textContent = '¡Listo! Selecciona un servidor.';
             currentAnime.servers = data.servers;
 
-            // Auto-select the first server that is usually reliable (e.g., sw, mega) or just the first one
-            changeServer(data.servers[0].name);
-
-            // Update buttons
             updateServerButtons(data.servers);
+            changeServer(data.servers[0].name); // Auto-play first server
         } else {
-            placeholderMessage.querySelector('p').textContent = `No se encontraron videos: ${data.message}`;
+            placeholderMessage.querySelector('p').textContent = `No se encontraron videos para el episodio ${episodeNumber}.`;
+            document.querySelector('.server-list').innerHTML = '';
         }
     } catch (error) {
-        console.error('Error connecting to local server:', error);
-        placeholderMessage.querySelector('p').textContent = 'Error: No se pudo conectar al servidor local.';
+        console.error('Error fetching videos:', error);
+        placeholderMessage.querySelector('p').textContent = 'Error al obtener videos.';
     }
 }
 
