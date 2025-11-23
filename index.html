@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AnimeStream - Ver Anime Online</title>
+    <title>AniNova - Ver Anime Online</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -15,7 +15,7 @@
     <header>
         <div class="container header-content">
             <div class="logo">
-                <h1>Anime<span class="highlight">Stream</span></h1>
+                <h1>Ani<span class="highlight">Nova</span></h1>
             </div>
             <div class="search-bar">
                 <input type="text" id="searchInput" placeholder="Buscar anime...">
@@ -33,15 +33,22 @@
 
     <!-- Main Content -->
     <main id="mainContent">
-        <!-- Hero Section -->
-        <section class="hero" id="heroSection">
-            <div class="hero-content">
-                <h2 id="heroTitle">Cargando anime destacado...</h2>
-                <p id="heroSynopsis">Descubre los mejores animes en emisión y finalizados.</p>
-                <button class="btn-primary" id="heroBtn">Ver Ahora</button>
+        <!-- Hero Carousel -->
+        <section class="hero-carousel" id="heroCarousel">
+            <div class="carousel-track" id="carouselTrack">
+                <!-- Slides injected via JS -->
+                <div class="hero-slide active">
+                    <div class="hero-content">
+                        <h2>Cargando...</h2>
+                    </div>
+                </div>
             </div>
-            <div class="hero-image">
-                <!-- Image injected via JS -->
+
+            <button class="carousel-btn prev" id="prevBtn"><i class="fas fa-chevron-left"></i></button>
+            <button class="carousel-btn next" id="nextBtn"><i class="fas fa-chevron-right"></i></button>
+
+            <div class="carousel-indicators" id="carouselIndicators">
+                <!-- Dots injected via JS -->
             </div>
         </section>
 
@@ -105,7 +112,8 @@
     </div>
 
     <footer>
-        <p>&copy; 2024 AnimeStream. Proyecto de demostración.</p>
+        <p>&copy; 2025-2026 AniNova. Proyecto de demostración hecho por Carlos Raul Ochoa Calderon. No busco el lucro,
+            simplemente disfruto creando proyectos para los usuarios.</p>
     </footer>
 
     <script src="script.js"></script>
