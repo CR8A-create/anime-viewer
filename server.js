@@ -20,34 +20,23 @@ function createSlug(title) {
         .replace(/-+/g, '-');         // Remove duplicate hyphens
 }
 
-app.get('/api/episode/:title', async (req, res) => {
+// 1. Get Anime Info and Episode List
+app.get('/api/anime/:title', async (req, res) => {
     const { title } = req.params;
     const slug = createSlug(title);
-    console.log(`Buscando anime: ${title} (Slug: ${slug})`);
+    console.log(`Buscando información de: ${title} (Slug: ${slug})`);
 
     try {
-        // 1. Try to find the Anime Page
-        // Note: This assumes the slug matches AnimeFLV's URL structure. 
-        // Real-world scrapers often need a search step first.
         const animeUrl = `https://www3.animeflv.net/anime/${slug}`;
-
         let animePage;
         try {
             animePage = await axios.get(animeUrl);
         } catch (err) {
-            // Fallback: Try adding "tv" or "2024" if simple slug fails, or just return error
-            console.log('No se encontró con el slug directo, intentando búsqueda...');
-            // For this demo, we will just fail gracefully if direct slug doesn't work
-            // Implementing a full search is complex for a single file demo
-            return res.json({ success: false, message: 'Anime no encontrado en AnimeFLV (Intenta con otro)' });
+            console.log('No se encontró con el slug directo.');
+            return res.json({ success: false, message: 'Anime no encontrado en AnimeFLV.' });
         }
 
         const $ = cheerio.load(animePage.data);
-
-        // 2. Get the latest episode link
-        // AnimeFLV lists episodes in a script variable usually, or in the DOM
-        // Let's try to find the first episode in the list (which is usually the latest)
-        // The episodes are often injected via JS, but sometimes present in a script tag: "var episodes = [...]"
 
         const scripts = $('script').map((i, el) => $(el).html()).get();
         const episodesScript = scripts.find(s => s.includes('var episodes ='));
@@ -56,29 +45,47 @@ app.get('/api/episode/:title', async (req, res) => {
             return res.json({ success: false, message: 'No se encontraron episodios.' });
         }
 
-        // Extract episodes array
         const episodesMatch = episodesScript.match(/var episodes = (\[.*?\]);/);
         if (!episodesMatch) {
             return res.json({ success: false, message: 'Error al leer episodios.' });
         }
 
-        const episodes = JSON.parse(episodesMatch[1]);
-        if (episodes.length === 0) {
-            return res.json({ success: false, message: 'Anime sin episodios.' });
-        }
+        // AnimeFLV episodes format: [episodeNum, episodeId]
+        // We map it to a cleaner format
+        const rawEpisodes = JSON.parse(episodesMatch[1]);
+        const episodes = rawEpisodes.map(ep => ({
+            number: ep[0],
+            id: ep[1]
+        }));
 
-        // Get latest episode (first in the list usually)
-        const latestEpisode = episodes[0]; // [episodeNum, episodeId]
-        const episodeUrl = `https://www3.animeflv.net/ver/${slug}-${latestEpisode[0]}`;
+        // Sort by number descending (usually already sorted, but good to ensure)
+        episodes.sort((a, b) => b.number - a.number);
 
-        console.log(`Buscando video en: ${episodeUrl}`);
+        res.json({
+            success: true,
+            slug: slug, // Return the slug so the frontend sends it back for videos
+            episodes: episodes
+        });
 
-        // 3. Fetch Episode Page to get Videos
+    } catch (error) {
+        console.error('Error en scraping anime:', error.message);
+        res.json({ success: false, message: 'Error interno del servidor.' });
+    }
+});
+
+// 2. Get Video Servers for a Specific Episode
+app.get('/api/videos/:slug/:episode', async (req, res) => {
+    const { slug, episode } = req.params;
+    console.log(`Buscando videos para: ${slug} Episodio ${episode}`);
+
+    try {
+        const episodeUrl = `https://www3.animeflv.net/ver/${slug}-${episode}`;
+
         const episodePage = await axios.get(episodeUrl);
-        const $ep = cheerio.load(episodePage.data);
+        const $ = cheerio.load(episodePage.data);
 
-        const epScripts = $ep('script').map((i, el) => $ep(el).html()).get();
-        const videosScript = epScripts.find(s => s.includes('var videos ='));
+        const scripts = $('script').map((i, el) => $(el).html()).get();
+        const videosScript = scripts.find(s => s.includes('var videos ='));
 
         if (!videosScript) {
             return res.json({ success: false, message: 'No se encontraron videos.' });
@@ -92,7 +99,6 @@ app.get('/api/episode/:title', async (req, res) => {
         const videosData = JSON.parse(videosMatch[1]);
         const servers = videosData.SUB; // We want subtitled
 
-        // Map to our format
         const mappedServers = servers.map(s => ({
             name: s.server,
             url: s.code
@@ -104,8 +110,8 @@ app.get('/api/episode/:title', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Error en scraping:', error.message);
-        res.json({ success: false, message: 'Error interno del servidor.' });
+        console.error('Error en scraping video:', error.message);
+        res.json({ success: false, message: 'Error al obtener videos.' });
     }
 });
 
