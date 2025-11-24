@@ -22,8 +22,15 @@ let currentSlug = null;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
-    fetchSeasonNow();
-    fetchTopAnime();
+    // Check page
+    if (window.location.pathname.includes('directorio.html')) {
+        setupDirectory();
+    } else if (window.location.pathname.includes('emision.html')) {
+        setupEmision();
+    } else {
+        fetchSeasonNow();
+        fetchTopAnime();
+    }
 
     // Event Listeners
     searchBtn.addEventListener('click', handleSearch);
@@ -66,7 +73,37 @@ async function handleSearch() {
     const query = searchInput.value.trim();
     if (!query) return;
 
-    // Clear and use recentGrid for results, hide popularGrid
+    // Check if we are on Directory or Emision page
+    if (window.location.pathname.includes('directorio.html') || window.location.pathname.includes('emision.html')) {
+        showHome(); // Ensure we are not in player view
+
+        const grid = document.getElementById('directoryGrid') || document.getElementById('emisionGrid');
+        const pagination = document.getElementById('pagination');
+
+        // Update Header to show search context
+        const headerTitle = document.querySelector('.section-header h3');
+        if (headerTitle) headerTitle.innerHTML = `<i class="fas fa-search"></i> Resultados para: ${query}`;
+
+        grid.innerHTML = '<div class="loading">Buscando...</div>';
+        pagination.innerHTML = ''; // Hide pagination for search results
+
+        try {
+            const response = await fetch(`${API_URL}/anime?q=${query}&limit=24`);
+            const data = await response.json();
+
+            if (data.data && data.data.length > 0) {
+                renderAnimeGrid(data.data, grid);
+            } else {
+                grid.innerHTML = '<p class="error">No se encontraron resultados.</p>';
+            }
+        } catch (error) {
+            console.error('Error searching:', error);
+            grid.innerHTML = '<p class="error">Error en la búsqueda.</p>';
+        }
+        return;
+    }
+
+    // Index Page Logic
     recentGrid.innerHTML = '<div class="loading">Buscando...</div>';
     popularGrid.parentElement.style.display = 'none'; // Hide popular section
     document.querySelector('#recentGrid').previousElementSibling.querySelector('h3').textContent = `Resultados para: ${query}`;
@@ -393,4 +430,183 @@ function changeServer(serverName) {
     placeholderMessage.style.display = 'flex';
     videoPlayer.style.display = 'none';
     placeholderMessage.querySelector('p').textContent = `Servidor ${serverName} seleccionado (Sin enlace real disponible).`;
+}
+
+// Directory Logic
+let currentDirPage = 1;
+let currentGenre = '';
+let currentLetter = '';
+
+function setupDirectory() {
+    const genreSelect = document.getElementById('genreSelect');
+    const alphabetFilter = document.getElementById('alphabetFilter');
+
+    // Populate Alphabet
+    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+    letters.forEach(letter => {
+        const btn = document.createElement('button');
+        btn.className = 'alpha-btn';
+        btn.dataset.letter = letter;
+        btn.textContent = letter;
+        btn.onclick = () => filterByLetter(letter);
+        alphabetFilter.appendChild(btn);
+    });
+
+    // Event Listeners
+    genreSelect.addEventListener('change', (e) => {
+        currentGenre = e.target.value;
+        currentLetter = ''; // Reset letter when genre changes
+        currentDirPage = 1;
+        updateActiveLetter('');
+        fetchDirectoryAnime();
+    });
+
+    document.querySelector('.alpha-btn[data-letter=""]').onclick = () => filterByLetter('');
+
+    // Initial Fetch
+    fetchDirectoryAnime();
+}
+
+function filterByLetter(letter) {
+    currentLetter = letter;
+    currentGenre = ''; // Reset genre when letter changes
+    document.getElementById('genreSelect').value = '';
+    currentDirPage = 1;
+    updateActiveLetter(letter);
+    fetchDirectoryAnime();
+}
+
+function updateActiveLetter(letter) {
+    document.querySelectorAll('.alpha-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.letter === letter);
+    });
+}
+
+async function fetchDirectoryAnime() {
+    const grid = document.getElementById('directoryGrid');
+    const pagination = document.getElementById('pagination');
+
+    grid.innerHTML = '<div class="loading">Cargando...</div>';
+    pagination.innerHTML = '';
+
+    let url = `${API_URL}/anime?page=${currentDirPage}&limit=24&order_by=popularity`;
+
+    if (currentGenre) {
+        url += `&genres=${currentGenre}`;
+    } else if (currentLetter) {
+        url += `&letter=${currentLetter}`;
+    }
+
+    try {
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.data && data.data.length > 0) {
+            renderAnimeGrid(data.data, grid);
+            renderPagination(data.pagination);
+        } else {
+            grid.innerHTML = '<p class="error">No se encontraron resultados.</p>';
+        }
+    } catch (error) {
+        console.error('Error fetching directory:', error);
+        grid.innerHTML = '<p class="error">Error al cargar el directorio.</p>';
+    }
+}
+
+function renderPagination(paginationData) {
+    const pagination = document.getElementById('pagination');
+    const { current_page, has_next_page } = paginationData;
+
+    if (current_page > 1) {
+        const prevBtn = document.createElement('button');
+        prevBtn.className = 'page-btn';
+        prevBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
+        prevBtn.onclick = () => {
+            currentDirPage--;
+            fetchDirectoryAnime();
+            window.scrollTo(0, 0);
+        };
+        pagination.appendChild(prevBtn);
+    }
+
+    const pageInfo = document.createElement('span');
+    pageInfo.style.alignSelf = 'center';
+    pageInfo.textContent = `Página ${current_page}`;
+    pagination.appendChild(pageInfo);
+
+    if (has_next_page) {
+        const nextBtn = document.createElement('button');
+        nextBtn.className = 'page-btn';
+        nextBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
+        nextBtn.onclick = () => {
+            currentDirPage++;
+            fetchDirectoryAnime();
+            window.scrollTo(0, 0);
+        };
+        pagination.appendChild(nextBtn);
+    }
+}
+
+// Emision Page Logic
+let currentEmisionPage = 1;
+
+function setupEmision() {
+    fetchEmisionAnime();
+}
+
+async function fetchEmisionAnime() {
+    const grid = document.getElementById('emisionGrid');
+    const pagination = document.getElementById('pagination');
+
+    grid.innerHTML = '<div class="loading">Cargando animes en emisión...</div>';
+    pagination.innerHTML = '';
+
+    try {
+        const response = await fetch(`${API_URL}/seasons/now?page=${currentEmisionPage}&limit=24`);
+        const data = await response.json();
+
+        if (data.data && data.data.length > 0) {
+            renderAnimeGrid(data.data, grid);
+            renderEmisionPagination(data.pagination);
+        } else {
+            grid.innerHTML = '<p class="error">No se encontraron animes en emisión.</p>';
+        }
+    } catch (error) {
+        console.error('Error fetching emision anime:', error);
+        grid.innerHTML = '<p class="error">Error al cargar animes en emisión.</p>';
+    }
+}
+
+function renderEmisionPagination(paginationData) {
+    const pagination = document.getElementById('pagination');
+    const { current_page, has_next_page } = paginationData;
+
+    if (current_page > 1) {
+        const prevBtn = document.createElement('button');
+        prevBtn.className = 'page-btn';
+        prevBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
+        prevBtn.onclick = () => {
+            currentEmisionPage--;
+            fetchEmisionAnime();
+            window.scrollTo(0, 0);
+        };
+        pagination.appendChild(prevBtn);
+    }
+
+    const pageInfo = document.createElement('span');
+    pageInfo.style.alignSelf = 'center';
+    pageInfo.textContent = `Página ${current_page}`;
+    pagination.appendChild(pageInfo);
+
+    if (has_next_page) {
+        const nextBtn = document.createElement('button');
+        nextBtn.className = 'page-btn';
+        nextBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
+        nextBtn.onclick = () => {
+            currentEmisionPage++;
+            fetchEmisionAnime();
+            window.scrollTo(0, 0);
+        };
+        pagination.appendChild(nextBtn);
+    }
 }

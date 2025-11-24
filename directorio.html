@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AniNova - Ver Anime Online</title>
+    <title>Directorio - AniNova</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -17,14 +17,10 @@
             <div class="logo">
                 <h1>Ani<span class="highlight">Nova</span></h1>
             </div>
-            <div class="search-bar">
-                <input type="text" id="searchInput" placeholder="Buscar anime...">
-                <button id="searchBtn"><i class="fas fa-search"></i></button>
-            </div>
             <nav>
                 <ul>
-                    <li><a href="index.html" class="active" onclick="showHome()">Inicio</a></li>
-                    <li><a href="directorio.html">Directorio</a></li>
+                    <li><a href="index.html">Inicio</a></li>
+                    <li><a href="directorio.html" class="active">Directorio</a></li>
                     <li><a href="emision.html">En Emisión</a></li>
                 </ul>
             </nav>
@@ -32,51 +28,55 @@
     </header>
 
     <!-- Main Content -->
-    <main id="mainContent">
-        <!-- Hero Carousel -->
-        <section class="hero-carousel" id="heroCarousel">
-            <div class="carousel-track" id="carouselTrack">
-                <!-- Slides injected via JS -->
-                <div class="hero-slide active">
-                    <div class="hero-content">
-                        <h2>Cargando...</h2>
-                    </div>
+    <main id="mainContent" class="container section">
+        <div class="section-header">
+            <h3><i class="fas fa-folder-open"></i> Directorio de Animes</h3>
+        </div>
+
+        <!-- Filters -->
+        <div class="filters-container">
+            <div class="filter-group">
+                <label><i class="fas fa-filter"></i> Género:</label>
+                <select id="genreSelect">
+                    <option value="">Todos</option>
+                    <option value="1">Acción</option>
+                    <option value="2">Aventura</option>
+                    <option value="4">Comedia</option>
+                    <option value="8">Drama</option>
+                    <option value="10">Fantasía</option>
+                    <option value="22">Romance</option>
+                    <option value="24">Ciencia Ficción</option>
+                    <option value="36">Slice of Life</option>
+                    <option value="30">Deportes</option>
+                    <option value="62">Isekai</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label><i class="fas fa-sort-alpha-down"></i> Orden:</label>
+                <div class="alphabet-filter" id="alphabetFilter">
+                    <button class="alpha-btn active" data-letter="">Todo</button>
+                    <!-- Letters A-Z injected via JS -->
                 </div>
             </div>
+        </div>
 
-            <button class="carousel-btn prev" id="prevBtn"><i class="fas fa-chevron-left"></i></button>
-            <button class="carousel-btn next" id="nextBtn"><i class="fas fa-chevron-right"></i></button>
+        <!-- Results Grid -->
+        <div class="anime-grid" id="directoryGrid">
+            <div class="loading">Cargando directorio...</div>
+        </div>
 
-            <div class="carousel-indicators" id="carouselIndicators">
-                <!-- Dots injected via JS -->
-            </div>
-        </section>
-
-        <!-- Recent Anime -->
-        <section class="container section">
-            <div class="section-header">
-                <h3><i class="fas fa-clock"></i> Animes Recientes</h3>
-            </div>
-            <div class="anime-grid" id="recentGrid">
-                <div class="loading">Cargando recientes...</div>
-            </div>
-        </section>
-
-        <!-- Top Anime -->
-        <section class="container section">
-            <div class="section-header">
-                <h3><i class="fas fa-star"></i> Animes Populares</h3>
-            </div>
-            <div class="anime-grid" id="popularGrid">
-                <div class="loading">Cargando populares...</div>
-            </div>
-        </section>
+        <!-- Pagination -->
+        <div class="pagination" id="pagination">
+            <!-- Pagination buttons injected via JS -->
+        </div>
     </main>
 
     <!-- Player View (Hidden by default) -->
     <div id="playerView" class="player-view hidden">
         <div class="container">
-            <button class="back-btn" onclick="showHome()"><i class="fas fa-arrow-left"></i> Volver al Inicio</button>
+            <button class="back-btn" onclick="showHome()"><i class="fas fa-arrow-left"></i> Volver al
+                Directorio</button>
 
             <div class="video-container">
                 <div class="video-wrapper">
