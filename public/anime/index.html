@@ -1,0 +1,115 @@
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <!-- Header -->
+    <header>
+        <div class="container header-content">
+            <div class="logo">
+                <h1>Ani<span class="highlight">Nova</span></h1>
+            </div>
+            <div class="search-bar">
+                <input type="text" id="searchInput" placeholder="Buscar anime...">
+                <button id="searchBtn"><i class="fas fa-search"></i></button>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="index.html" class="active" onclick="showHome()">Inicio</a></li>
+                    <li><a href="directorio.html">Directorio</a></li>
+                    <li><a href="emision.html">En Emisión</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main id="mainContent">
+        <!-- Hero Carousel -->
+        <section class="hero-carousel" id="heroCarousel">
+            <div class="carousel-track" id="carouselTrack">
+                <!-- Slides injected via JS -->
+                <div class="hero-slide active">
+                    <div class="hero-content">
+                        <h2>Cargando...</h2>
+                    </div>
+                </div>
+            </div>
+
+            <button class="carousel-btn prev" id="prevBtn"><i class="fas fa-chevron-left"></i></button>
+            <button class="carousel-btn next" id="nextBtn"><i class="fas fa-chevron-right"></i></button>
+
+            <div class="carousel-indicators" id="carouselIndicators">
+                <!-- Dots injected via JS -->
+            </div>
+        </section>
+
+        <!-- Recent Anime -->
+        <section class="container section">
+            <div class="section-header">
+                <h3><i class="fas fa-clock"></i> Animes Recientes</h3>
+            </div>
+            <div class="anime-grid" id="recentGrid">
+                <div class="loading">Cargando recientes...</div>
+            </div>
+        </section>
+
+        <!-- Top Anime -->
+        <section class="container section">
+            <div class="section-header">
+                <h3><i class="fas fa-star"></i> Animes Populares</h3>
+            </div>
+            <div class="anime-grid" id="popularGrid">
+                <div class="loading">Cargando populares...</div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Player View (Hidden by default) -->
+    <div id="playerView" class="player-view hidden">
+        <div class="container">
+            <button class="back-btn" onclick="showHome()"><i class="fas fa-arrow-left"></i> Volver al Inicio</button>
+
+            <div class="video-container">
+                <div class="video-wrapper">
+                    <iframe id="videoPlayer" src="" frameborder="0" allowfullscreen></iframe>
+                    <div id="placeholderMessage" class="placeholder-message">
+                        <i class="fas fa-film"></i>
+                        <h3>Selecciona un Servidor</h3>
+                        <p>Buscando enlaces...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="server-controls">
+                <span><i class="fas fa-server"></i> Servidores:</span>
+                <div class="server-list">
+                    <!-- Buttons injected via JS -->
+                    <button class="server-btn">Cargando...</button>
+                </div>
+            </div>
+
+            <!-- Episode List -->
+            <div class="episodes-container">
+                <h3><i class="fas fa-list-ol"></i> Episodios</h3>
+                <div class="episodes-list" id="episodesList">
+                    <!-- Episodes injected via JS -->
+                </div>
+            </div>
+
+            <div class="anime-info-detailed" id="animeInfoDetailed">
+                <!-- Details injected via JS -->
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2025-2026 AniNova. Proyecto de demostración hecho por Carlos Raul Ochoa Calderon. No busco el lucro,
+            simplemente disfruto creando proyectos para los usuarios.</p>
+    </footer>
+
+    <script src="../assets/js/anime-logic.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,18 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Environment variables
+.env
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Editor directories
+.vscode/
+.idea/
+
+# Capacitor
+/android/app/build/
+/android/.gradle/
