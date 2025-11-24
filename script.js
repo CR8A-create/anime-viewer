@@ -75,6 +75,7 @@ async function fetchTopAnime() {
 }
 
 async function handleSearch() {
+    if (!searchInput) return; // Guard clause if search bar is removed
     const query = searchInput.value.trim();
     if (!query) return;
 
