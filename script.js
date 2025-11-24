@@ -17,44 +17,114 @@ const placeholderMessage = document.getElementById('placeholderMessage');
 const episodesList = document.getElementById('episodesList');
 
 // State
-// Update Header to show search context
-const headerTitle = document.querySelector('.section-header h3');
-if (headerTitle) headerTitle.innerHTML = `<i class="fas fa-search"></i> Resultados para: ${query}`;
+let currentAnime = null;
+let currentSlug = null;
 
-grid.innerHTML = '<div class="loading">Buscando...</div>';
-pagination.innerHTML = ''; // Hide pagination for search results
-
-try {
-    const response = await fetch(`${API_URL}/anime?q=${query}&limit=24`);
-    const data = await response.json();
-
-    if (data.data && data.data.length > 0) {
-        renderAnimeGrid(data.data, grid);
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+    // Check page
+    if (window.location.pathname.includes('directorio')) {
+        setupDirectory();
+    } else if (window.location.pathname.includes('emision')) {
+        setupEmision();
     } else {
-        grid.innerHTML = '<p class="error">No se encontraron resultados.</p>';
-    }
-} catch (error) {
-    console.error('Error searching:', error);
-    grid.innerHTML = '<p class="error">Error en la búsqueda.</p>';
-}
-return;
+        fetchSeasonNow();
+        fetchTopAnime();
     }
 
-// Index Page Logic
-recentGrid.innerHTML = '<div class="loading">Buscando...</div>';
-popularGrid.parentElement.style.display = 'none'; // Hide popular section
-document.querySelector('#recentGrid').previousElementSibling.querySelector('h3').textContent = `Resultados para: ${query}`;
+    // Event Listeners
+    if (searchBtn) {
+        searchBtn.addEventListener('click', handleSearch);
+    }
+    if (searchInput) {
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleSearch();
+        });
+    }
+});
 
-showHome();
+// Fetch Data
+async function fetchSeasonNow() {
+    try {
+        const response = await fetch(`${API_URL}/seasons/now?limit=12`);
+        const data = await response.json();
 
-try {
-    const response = await fetch(`${API_URL}/anime?q=${query}&limit=20`);
-    const data = await response.json();
-    renderAnimeGrid(data.data, recentGrid);
-} catch (error) {
-    console.error('Error searching:', error);
-    recentGrid.innerHTML = '<p class="error">Error en la búsqueda.</p>';
+        if (data.data && data.data.length > 0) {
+            setupCarousel(data.data); // Use top animes for Carousel
+            renderAnimeGrid(data.data, recentGrid);
+        }
+    } catch (error) {
+        console.error('Error fetching season anime:', error);
+        if (recentGrid) recentGrid.innerHTML = '<p class="error">Error al cargar recientes.</p>';
+    }
 }
+
+async function fetchTopAnime() {
+    try {
+        const response = await fetch(`${API_URL}/top/anime?filter=bypopularity&limit=12`);
+        const data = await response.json();
+
+        if (data.data && data.data.length > 0) {
+            renderAnimeGrid(data.data, popularGrid);
+        }
+    } catch (error) {
+        console.error('Error fetching top anime:', error);
+        if (popularGrid) popularGrid.innerHTML = '<p class="error">Error al cargar populares.</p>';
+    }
+}
+
+async function handleSearch() {
+    if (!searchInput) return; // Guard clause if search bar is removed
+    const query = searchInput.value.trim();
+    if (!query) return;
+
+    // Check if we are on Directory or Emision page
+    if (window.location.pathname.includes('directorio') || window.location.pathname.includes('emision')) {
+        showHome(); // Ensure we are not in player view
+
+        const grid = document.getElementById('directoryGrid') || document.getElementById('emisionGrid');
+        const pagination = document.getElementById('pagination');
+
+        // Update Header to show search context
+        const headerTitle = document.querySelector('.section-header h3');
+        if (headerTitle) headerTitle.innerHTML = `<i class="fas fa-search"></i> Resultados para: ${query}`;
+
+        if (grid) grid.innerHTML = '<div class="loading">Buscando...</div>';
+        if (pagination) pagination.innerHTML = ''; // Hide pagination for search results
+
+        try {
+            const response = await fetch(`${API_URL}/anime?q=${query}&limit=24`);
+            const data = await response.json();
+
+            if (data.data && data.data.length > 0) {
+                renderAnimeGrid(data.data, grid);
+            } else {
+                if (grid) grid.innerHTML = '<p class="error">No se encontraron resultados.</p>';
+            }
+        } catch (error) {
+            console.error('Error searching:', error);
+            if (grid) grid.innerHTML = '<p class="error">Error en la búsqueda.</p>';
+        }
+        return;
+    }
+
+    // Index Page Logic
+    if (recentGrid) recentGrid.innerHTML = '<div class="loading">Buscando...</div>';
+    if (popularGrid && popularGrid.parentElement) popularGrid.parentElement.style.display = 'none'; // Hide popular section
+
+    const recentHeader = document.querySelector('#recentGrid').previousElementSibling.querySelector('h3');
+    if (recentHeader) recentHeader.textContent = `Resultados para: ${query}`;
+
+    showHome();
+
+    try {
+        const response = await fetch(`${API_URL}/anime?q=${query}&limit=20`);
+        const data = await response.json();
+        renderAnimeGrid(data.data, recentGrid);
+    } catch (error) {
+        console.error('Error searching:', error);
+        if (recentGrid) recentGrid.innerHTML = '<p class="error">Error en la búsqueda.</p>';
+    }
 }
 
 // UI Rendering
@@ -380,25 +450,6 @@ function setupDirectory() {
 
     // Populate Alphabet
     const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-    letters.forEach(letter => {
-        const btn = document.createElement('button');
-        btn.className = 'alpha-btn';
-        btn.dataset.letter = letter;
-        btn.textContent = letter;
-        btn.onclick = () => filterByLetter(letter);
-        alphabetFilter.appendChild(btn);
-    });
-
-    // Event Listeners
-    genreSelect.addEventListener('change', (e) => {
-        currentGenre = e.target.value;
-        currentLetter = ''; // Reset letter when genre changes
-        currentDirPage = 1;
-        updateActiveLetter('');
-        fetchDirectoryAnime();
-    });
-
-    document.querySelector('.alpha-btn[data-letter=""]').onclick = () => filterByLetter('');
 
     // Initial Fetch
     fetchDirectoryAnime();
