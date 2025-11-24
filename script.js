@@ -448,8 +448,37 @@ function setupDirectory() {
     const genreSelect = document.getElementById('genreSelect');
     const alphabetFilter = document.getElementById('alphabetFilter');
 
+    // Event Listener for Genre
+    if (genreSelect) {
+        genreSelect.addEventListener('change', (e) => {
+            currentGenre = e.target.value;
+            currentLetter = ''; // Reset letter
+            currentDirPage = 1;
+
+            // Reset active letter
+            updateActiveLetter('');
+
+            fetchDirectoryAnime();
+        });
+    }
+
+    // Event Listener for "Todo" button
+    const todoBtn = alphabetFilter.querySelector('.alpha-btn[data-letter=""]');
+    if (todoBtn) {
+        todoBtn.addEventListener('click', () => filterByLetter(''));
+    }
+
     // Populate Alphabet
     const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+
+    letters.forEach(letter => {
+        const btn = document.createElement('button');
+        btn.className = 'alpha-btn';
+        btn.textContent = letter;
+        btn.dataset.letter = letter;
+        btn.onclick = () => filterByLetter(letter);
+        alphabetFilter.appendChild(btn);
+    });
 
     // Initial Fetch
     fetchDirectoryAnime();
