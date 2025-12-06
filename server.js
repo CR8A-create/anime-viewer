@@ -21,20 +21,52 @@ function createSlug(title) {
         .replace(/-+/g, '-');         // Remove duplicate hyphens
 }
 
+// Helper to search AnimeFLV if direct slug fails
+async function searchAnimeFLV(query) {
+    try {
+        const searchUrl = `https://www3.animeflv.net/browse?q=${encodeURIComponent(query)}`;
+        console.log(`Fallback: Buscando en AnimeFLV: ${searchUrl}`);
+        const response = await axios.get(searchUrl);
+        const $ = cheerio.load(response.data);
+
+        // Select the first anime in the list
+        const firstResult = $('.ListAnimes li article a').first();
+        if (firstResult.length > 0) {
+            const href = firstResult.attr('href'); // e.g., /anime/re-zero-kara-hajimeru-isekai-seikatsu-3rd-season
+            return `https://www3.animeflv.net${href}`;
+        }
+        return null;
+    } catch (error) {
+        console.error('Error en búsqueda fallback:', error.message);
+        return null;
+    }
+}
+
 // 1. Get Anime Info and Episode List
 app.get('/api/anime/:title', async (req, res) => {
     const { title } = req.params;
-    const slug = createSlug(title);
-    console.log(`Buscando información de: ${title} (Slug: ${slug})`);
+    let slug = createSlug(title);
+    console.log(`Buscando información de: ${title} (Slug estimado: ${slug})`);
 
     try {
-        const animeUrl = `https://www3.animeflv.net/anime/${slug}`;
+        let animeUrl = `https://www3.animeflv.net/anime/${slug}`;
         let animePage;
+
         try {
             animePage = await axios.get(animeUrl);
         } catch (err) {
-            console.log('No se encontró con el slug directo.');
-            return res.json({ success: false, message: 'Anime no encontrado en AnimeFLV.' });
+            console.log('Slug directo falló, intentando búsqueda fallback...');
+            const fallbackUrl = await searchAnimeFLV(title);
+            if (fallbackUrl) {
+                console.log(`Encontrado por búsqueda: ${fallbackUrl}`);
+                animeUrl = fallbackUrl;
+                // Update slug from found URL for cleaner future use if needed
+                slug = fallbackUrl.split('/').pop();
+                animePage = await axios.get(animeUrl);
+            } else {
+                console.log('No se encontró tampoco por búsqueda.');
+                return res.json({ success: false, message: 'Anime no encontrado en AnimeFLV.' });
+            }
         }
 
         const $ = cheerio.load(animePage.data);
@@ -59,12 +91,30 @@ app.get('/api/anime/:title', async (req, res) => {
             id: ep[1]
         }));
 
+        // Scrape details (Spanish)
+        // Fallback for description
+        let description = $('.Description p').text().trim();
+        if (!description) description = $('.Description').text().trim();
+        if (!description) description = $('meta[property="og:description"]').attr('content');
+        if (!description) description = $('meta[name="description"]').attr('content');
+
+        // Fallback for genres
+        let genres = $('.Genres a').map((i, el) => $(el).text()).get();
+        if (genres.length === 0) genres = $('.Nvgnrs a').map((i, el) => $(el).text()).get();
+
+        const status = $('.AnmStts').text().trim();
+        const rate = $('.vtprmd').text().trim();
+
         // Sort by number descending (usually already sorted, but good to ensure)
         episodes.sort((a, b) => b.number - a.number);
 
         res.json({
             success: true,
-            slug: slug, // Return the slug so the frontend sends it back for videos
+            slug: slug, // Return the CORRECT slug
+            description: description,
+            genres: genres,
+            status: status,
+            rate: rate,
             episodes: episodes
         });
 

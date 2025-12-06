@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ver Anime - AniNova</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <!-- Header -->
+    <header>
+        <div class="container header-content">
+            <div class="logo">
+                <h1>Ani<span class="highlight">Nova</span></h1>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="index.html">Inicio</a></li>
+                    <li><a href="directorio.html">Directorio</a></li>
+                    <li><a href="emision.html">En Emisión</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main id="playerContent" class="container section">
+        <button class="back-btn" onclick="window.location.href='index.html'"><i class="fas fa-arrow-left"></i> Volver al
+            Inicio</button>
+
+        <div class="video-container">
+            <h3 id="activeEpisodeTitle" class="active-episode-title"
+                style="display:none; text-align: center; margin-bottom: 15px; color: var(--neon-blue); text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);">
+            </h3>
+            <div class="video-wrapper">
+                <iframe id="videoPlayer" src="" frameborder="0" allowfullscreen></iframe>
+                <div id="placeholderMessage" class="placeholder-message">
+                    <i class="fas fa-film"></i>
+                    <h3>Selecciona un Servidor</h3>
+                    <p>Buscando enlaces...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="video-controls">
+            <button id="prevEpBtn" class="control-btn" disabled><i class="fas fa-chevron-left"></i> Anterior</button>
+            <button id="nextEpBtn" class="control-btn" disabled>Siguiente <i class="fas fa-chevron-right"></i></button>
+        </div>
+
+        <div class="server-controls">
+            <span><i class="fas fa-server"></i> Servidores:</span>
+            <div class="server-list">
+                <!-- Buttons injected via JS -->
+                <button class="server-btn">Cargando...</button>
+            </div>
+        </div>
+
+        <div class="anime-info-detailed" id="animeInfoDetailed">
+            <!-- Details injected via JS -->
+            <div class="loading">Cargando información del anime...</div>
+        </div>
+
+        <!-- Episode List -->
+        <div class="episodes-container">
+            <h3><i class="fas fa-list-ol"></i> Episodios</h3>
+            <div class="episodes-list" id="episodesList">
+                <!-- Episodes injected via JS -->
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2025-2026 AniNova. Proyecto de demostración.</p>
+    </footer>
+
+    <script src="../assets/js/anime-logic.js"></script>
+</body>
+
+</html>

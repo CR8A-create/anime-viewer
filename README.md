@@ -1,17 +1,4 @@
 # 🎬 Anime Viewer Project
-
-Bienvenido al repositorio de **Anime Viewer**. Este proyecto es una aplicación híbrida (Web y Móvil) diseñada para buscar, visualizar y reproducir contenido de anime obteniendo información en tiempo real.
-
-## 🚀 Descripción del Proyecto
-
-El sistema consta de dos partes principales:
-1.  **Backend (API REST)**: Un servidor construido con **Node.js** y **Express** que realiza *web scraping* a AnimeFLV para obtener información actualizada de animes, episodios y servidores de video.
-2.  **Frontend (Cliente)**: Una interfaz web limpia y responsiva (HTML/CSS/JS) que consume la API. Además, está configurada con **Capacitor** para ser compilada como una aplicación nativa de Android.
-
-## 🛠️ Tecnologías Utilizadas
-
--   **Backend**:
-    -   `Node.js`: Entorno de ejecución.
     -   `Express`: Framework para el servidor web.
     -   `Cheerio`: Librería para *web scraping* (parseo de HTML).
     -   `Axios`: Cliente HTTP para realizar peticiones a la fuente de datos.
