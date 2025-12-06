@@ -50,6 +50,77 @@ async function searchAnimeFLV(query) {
     }
 }
 
+// -1. Get Airing Anime (Carousel)
+app.get('/api/airing', async (req, res) => {
+    try {
+        const response = await axios.get('https://www3.animeflv.net/browse?status=1&order=rating');
+        const $ = cheerio.load(response.data);
+        const airingAnime = [];
+
+        $('.ListAnimes li article').slice(0, 5).each((i, el) => {
+            const $el = $(el);
+            const title = $el.find('.Title').text().trim();
+            const image = $el.find('img').attr('src');
+            const url = $el.find('a').attr('href'); // /anime/slug
+            const slug = url.split('/').pop();
+            // Try to find description if available in listing, strict search pages usually have .Description
+            // If not, we might need a placeholder or fetch details (expensive).
+            // AnimeFLV browse page usually has .Description p -- let's verify visual memory or generic selector
+            let synopsis = $el.find('.Description p').text().trim();
+            // Clean unwanted "Anime 4.5" prefix if present due to scraping structure
+            synopsis = synopsis.replace(/^Anime\s+\d+(\.\d+)?\s*/i, '');
+            if (!synopsis) synopsis = "Mira este anime en español en AniNova.";
+
+            airingAnime.push({
+                mal_id: slug, // Use slug for ID
+                title: title,
+                images: { jpg: { large_image_url: image, image_url: image } },
+                synopsis: synopsis,
+                score: $el.find('.Vts').text().trim() || 'N/A'
+            });
+        });
+
+        res.json({ success: true, data: airingAnime });
+    } catch (error) {
+        console.error('Error scraping airing:', error.message);
+        res.status(500).json({ success: false, message: 'Error fetching airing anime' });
+    }
+});
+
+// 0. Get Recent Episodes (Home Page)
+app.get('/api/recent', async (req, res) => {
+    try {
+        const response = await axios.get('https://www3.animeflv.net/');
+        const $ = cheerio.load(response.data);
+        const recentEpisodes = [];
+
+        $('.ListEpisodios li').each((i, el) => {
+            const $el = $(el);
+            const title = $el.find('.Title').text().trim();
+            const episodeStr = $el.find('.Capi').text().trim(); // "Episodio X"
+            const episodeNum = episodeStr.replace(/Episodio\s*/i, '').trim();
+            const image = $el.find('img').attr('src');
+            const url = $el.find('a').attr('href'); // /ver/slug-episode
+            const slug = url.split('/ver/')[1].split('-').slice(0, -1).join('-');
+
+            // Construct Jikan-like structure for frontend compatibility
+            recentEpisodes.push({
+                entry: {
+                    mal_id: slug, // Use slug as ID for local logic
+                    title: title,
+                    images: { jpg: { image_url: 'https://www3.animeflv.net' + image } }
+                },
+                episodes: [{ title: `Episodio ${episodeNum}` }] // Used for "type" badge
+            });
+        });
+
+        res.json({ success: true, data: recentEpisodes });
+    } catch (error) {
+        console.error('Error scraping recent:', error.message);
+        res.status(500).json({ success: false, message: 'Error fetching recent episodes' });
+    }
+});
+
 // 1. Get Anime Info and Episode List
 app.get('/api/anime/:title', async (req, res) => {
     const { title } = req.params;
