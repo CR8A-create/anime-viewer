@@ -1,6 +1,13 @@
-<link rel="stylesheet" href="../assets/css/style.css">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AniNova - Ver Anime Online</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
 </head>
 
 <body>
@@ -66,225 +73,14 @@
         </section>
     </main>
 
-    <link rel="stylesheet" href="../assets/css/style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
-    </head>
 
-    <body>
-        <!-- Header -->
-        <header>
-            <div class="container header-content">
-                <div class="logo">
-                    <h1>Ani<span class="highlight">Nova</span></h1>
-                </div>
-                <div class="search-bar">
-                    <input type="text" id="searchInput" placeholder="Buscar anime...">
-                    <button id="searchBtn"><i class="fas fa-search"></i></button>
-                </div>
-                <nav>
-                    <ul>
-                        <li><a href="index.html" class="active" onclick="showHome()">Inicio</a></li>
-                        <li><a href="directorio.html">Directorio</a></li>
-                        <li><a href="emision.html">En Emisión</a></li>
-                    </ul>
-                </nav>
-            </div>
-        </header>
+    <footer>
+        <p>&copy; 2025-2026 AniNova. Proyecto de demostración hecho por Carlos Raul Ochoa Calderon. No busco el lucro,
+            simplemente disfruto creando proyectos para los usuarios.</p>
+    </footer>
 
-        <!-- Main Content -->
-        <main id="mainContent">
-            <!-- Hero Carousel -->
-            <section class="hero-carousel" id="heroCarousel">
-                <div class="carousel-track" id="carouselTrack">
-                    <!-- Slides injected via JS -->
-                    <div class="hero-slide active">
-                        <div class="hero-content">
-                            <h2>Cargando...</h2>
-                        </div>
-                    </div>
-                </div>
+    <script src="assets/js/anime-logic.js"></script>
+    <script src="assets/js/version-manager.js"></script>
+</body>
 
-                <button class="carousel-btn prev" id="prevBtn"><i class="fas fa-chevron-left"></i></button>
-                <button class="carousel-btn next" id="nextBtn"><i class="fas fa-chevron-right"></i></button>
-
-                <div class="carousel-indicators" id="carouselIndicators">
-                    <!-- Dots injected via JS -->
-                </div>
-            </section>
-
-            <!-- Recent Anime -->
-            <section class="container section">
-                <div class="section-header">
-                    <h3><i class="fas fa-clock"></i> Animes Recientes</h3>
-                </div>
-                <div class="anime-grid" id="recentGrid">
-                    <div class="loading">Cargando recientes...</div>
-                </div>
-            </section>
-
-            <!-- Top Anime -->
-            <section class="container section">
-                <div class="section-header">
-                    <h3><i class="fas fa-star"></i> Animes Populares</h3>
-                </div>
-                <div class="anime-grid" id="popularGrid">
-                    <div class="loading">Cargando populares...</div>
-                </div>
-            </section>
-        </main>
-
-
-        <footer>
-            <link rel="stylesheet" href="../assets/css/style.css">
-            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-            <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap"
-                rel="stylesheet">
-            </head>
-
-            <body>
-                <!-- Header -->
-                <header>
-                    <div class="container header-content">
-                        <div class="logo">
-                            <h1>Ani<span class="highlight">Nova</span></h1>
-                        </div>
-                        <div class="search-bar">
-                            <input type="text" id="searchInput" placeholder="Buscar anime...">
-                            <button id="searchBtn"><i class="fas fa-search"></i></button>
-                        </div>
-                        <nav>
-                            <ul>
-                                <li><a href="index.html" class="active" onclick="showHome()">Inicio</a></li>
-                                <li><a href="directorio.html">Directorio</a></li>
-                                <li><a href="emision.html">En Emisión</a></li>
-                            </ul>
-                        </nav>
-                    </div>
-                </header>
-
-                <!-- Main Content -->
-                <main id="mainContent">
-                    <!-- Hero Carousel -->
-                    <section class="hero-carousel" id="heroCarousel">
-                        <div class="carousel-track" id="carouselTrack">
-                            <!-- Slides injected via JS -->
-                            <div class="hero-slide active">
-                                <div class="hero-content">
-                                    <h2>Cargando...</h2>
-                                </div>
-                            </div>
-                        </div>
-
-                        <button class="carousel-btn prev" id="prevBtn"><i class="fas fa-chevron-left"></i></button>
-                        <button class="carousel-btn next" id="nextBtn"><i class="fas fa-chevron-right"></i></button>
-
-                        <div class="carousel-indicators" id="carouselIndicators">
-                            <!-- Dots injected via JS -->
-                        </div>
-                    </section>
-
-                    <!-- Recent Anime -->
-                    <section class="container section">
-                        <div class="section-header">
-                            <h3><i class="fas fa-clock"></i> Animes Recientes</h3>
-                        </div>
-                        <div class="anime-grid" id="recentGrid">
-                            <div class="loading">Cargando recientes...</div>
-                        </div>
-                    </section>
-
-                    <!-- Top Anime -->
-                    <section class="container section">
-                        <div class="section-header">
-                            <h3><i class="fas fa-star"></i> Animes Populares</h3>
-                        </div>
-                        <div class="anime-grid" id="popularGrid">
-                            <div class="loading">Cargando populares...</div>
-                        </div>
-                    </section>
-                </main>
-
-                <link rel="stylesheet" href="../assets/css/style.css">
-                <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-                <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap"
-                    rel="stylesheet">
-                </head>
-
-                <body>
-                    <!-- Header -->
-                    <header>
-                        <div class="container header-content">
-                            <div class="logo">
-                                <h1>Ani<span class="highlight">Nova</span></h1>
-                            </div>
-                            <div class="search-bar">
-                                <input type="text" id="searchInput" placeholder="Buscar anime...">
-                                <button id="searchBtn"><i class="fas fa-search"></i></button>
-                            </div>
-                            <nav>
-                                <ul>
-                                    <li><a href="index.html" class="active" onclick="showHome()">Inicio</a></li>
-                                    <li><a href="directorio.html">Directorio</a></li>
-                                    <li><a href="emision.html">En Emisión</a></li>
-                                </ul>
-                            </nav>
-                        </div>
-                    </header>
-
-                    <!-- Main Content -->
-                    <main id="mainContent">
-                        <!-- Hero Carousel -->
-                        <section class="hero-carousel" id="heroCarousel">
-                            <div class="carousel-track" id="carouselTrack">
-                                <!-- Slides injected via JS -->
-                                <div class="hero-slide active">
-                                    <div class="hero-content">
-                                        <h2>Cargando...</h2>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <button class="carousel-btn prev" id="prevBtn"><i class="fas fa-chevron-left"></i></button>
-                            <button class="carousel-btn next" id="nextBtn"><i class="fas fa-chevron-right"></i></button>
-
-                            <div class="carousel-indicators" id="carouselIndicators">
-                                <!-- Dots injected via JS -->
-                            </div>
-                        </section>
-
-                        <!-- Recent Anime -->
-                        <section class="container section">
-                            <div class="section-header">
-                                <h3><i class="fas fa-clock"></i> Animes Recientes</h3>
-                            </div>
-                            <div class="anime-grid" id="recentGrid">
-                                <div class="loading">Cargando recientes...</div>
-                            </div>
-                        </section>
-
-                        <!-- Top Anime -->
-                        <section class="container section">
-                            <div class="section-header">
-                                <h3><i class="fas fa-star"></i> Animes Populares</h3>
-                            </div>
-                            <div class="anime-grid" id="popularGrid">
-                                <div class="loading">Cargando populares...</div>
-                            </div>
-                        </section>
-                    </main>
-
-
-                    <footer>
-                        <p>&copy; 2025-2026 AniNova. Proyecto de demostración hecho por Carlos Raul Ochoa Calderon. No
-                            busco el
-                            lucro,
-                            simplemente disfruto creando proyectos para los usuarios.</p>
-                    </footer>
-
-                    <script src="assets/js/anime-logic.js"></script>
-                    <script src="assets/js/version-manager.js"></script>
-                    <script src="assets/js/version-manager.js"></script>
-                </body>
-
-                </html>
+</html>
