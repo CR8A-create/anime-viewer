@@ -1,14 +1,3 @@
-const API_URL = 'https://api.jikan.moe/v4';
-
-// CAMBIA ESTA URL POR LA DE TU PROYECTO EN RENDER (IMPORTANTE)
-// Mientras no cambies esto, en Netlify saldrá "Error de servidor" porque no puede acceder a localhost.
-// Ejemplo: 'https://mi-anime-server.onrender.com/api'
-const PROD_URL = 'https://TU-APP-EN-RENDER.onrender.com/api';
-
-const BACKEND_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-    ? 'http://localhost:3000/api'
-    : PROD_URL;
-
 // DOM Elements
 const mainContent = document.getElementById('mainContent');
 const playerView = document.getElementById('playerView');
@@ -329,19 +318,6 @@ function renderAnimeGrid(animeList, container) {
     });
 }
 
-// Player Logic
-// Player Logic
-function openPlayer(anime) {
-    // Redirect to ver.html with anime data param
-    const animeData = encodeURIComponent(JSON.stringify(anime));
-    // Or just ID if we want to fetch fresh. Ideally passing ID is better for URL sharing.
-    // Let's pass ID and Title.
-    const params = new URLSearchParams();
-    params.set('id', anime.mal_id);
-    params.set('title', anime.title);
-
-    window.location.href = `ver.html?${params.toString()}`;
-}
 
 async function setupPlayerPage() {
     const params = new URLSearchParams(window.location.search);

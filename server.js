@@ -5,12 +5,20 @@ const cheerio = require('cheerio');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
-app.use(express.json());
+app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.static('public')); // Serve static files from public folder
 
 app.get('/', (req, res) => {
     res.send('¡El servidor API de Anime está funcionando! Abre index.html para ver la página.');
+});
+
+// Health Check Endpoint
+app.get('/api/health', (req, res) => {
+    res.sendStatus(200);
 });
 
 // Helper function to create slug from title
