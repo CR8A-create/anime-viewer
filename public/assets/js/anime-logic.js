@@ -329,33 +329,20 @@ function renderAnimeGrid(animeList, container) {
 
 async function setupPlayerPage() {
     const params = new URLSearchParams(window.location.search);
-    const animeId = params.get('id');
-    const animeTitle = params.get('title');
-
-    if (!animeId && !animeTitle) {
-        alert('No se especificó un anime.');
-        window.location.href = 'index.html';
-        return;
+    const response = await fetch(`${API_URL}/anime/${animeId}`);
+    const data = await response.json();
+    if (data.data) {
+        currentAnime = data.data;
+        initializePlayer(currentAnime);
     }
-
-    // Attempt to Re-construct anime object or fetch it
-    // If we have ID, we can fetch from Jikan to get details
-    if (animeId) {
-        try {
-            const response = await fetch(`${API_URL}/anime/${animeId}`);
-            const data = await response.json();
-            if (data.data) {
-                currentAnime = data.data;
-                initializePlayer(currentAnime);
-            }
-        } catch (e) {
-            console.error('Error loading anime details:', e);
-            document.getElementById('animeInfoDetailed').innerHTML = '<p>Error al cargar detalles.</p>';
-        }
+} catch (e) {
+    console.error('Error loading anime details:', e);
+    document.getElementById('animeInfoDetailed').innerHTML = '<p>Error al cargar detalles.</p>';
+}
     } else {
-        // Fallback currently not fully supported without ID, but could search by title
-        document.getElementById('animeInfoDetailed').innerHTML = '<p>ID de anime no encontrado.</p>';
-    }
+    // Fallback currently not fully supported without ID, but could search by title
+    document.getElementById('animeInfoDetailed').innerHTML = '<p>ID de anime no encontrado.</p>';
+}
 }
 
 async function initializePlayer(anime) {
