@@ -1,3 +1,11 @@
+console.log("Anime Logic Loaded - Version: FIXED_MISSING_VARS");
+const API_URL = 'https://api.jikan.moe/v4';
+// URL REAL de tu servidor en Render (Visto en tu captura)
+const PROD_URL = 'https://mi-anime-api.onrender.com/api';
+const BACKEND_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? 'http://localhost:3000/api'
+    : PROD_URL;
+
 // DOM Elements
 const mainContent = document.getElementById('mainContent');
 const playerView = document.getElementById('playerView');

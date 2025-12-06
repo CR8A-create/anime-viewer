@@ -1,5 +1,5 @@
 const APP_VERSION = '2.0.0';
-const UPDATE_CHECK_URL = 'https://raw.githubusercontent.com/TU_USUARIO/Pagina-Ver-Anime/main/public/version.json'; // REEMPLAZAR CON TU URL REAL
+const UPDATE_CHECK_URL = 'https://raw.githubusercontent.com/CR8A-create/anime-viewer/main/public/version.json'; // REEMPLAZAR CON TU URL REAL
 
 const RELEASE_NOTES = `
     <h3>🚀 ¡Novedades de la Versión 2.0!</h3>
