@@ -20,6 +20,35 @@ const videoPlayer = document.getElementById('videoPlayer');
 const placeholderMessage = document.getElementById('placeholderMessage');
 const episodesList = document.getElementById('episodesList');
 
+// Connection Check
+async function checkBackendConnection() {
+    try {
+        await fetch(`${BACKEND_URL}/health`, { method: 'HEAD', signal: AbortSignal.timeout(2000) });
+        console.log('Backend connected:', BACKEND_URL);
+    } catch (e) {
+        console.warn('Backend disconnected. Falling back to Jikan English API.');
+        showToast('⚠️ Modo Sin Servidor: Mostrando datos en Inglés (Jikan API).', 'warning');
+    }
+}
+
+function showToast(msg, type = 'info') {
+    const toast = document.createElement('div');
+    toast.style.cssText = `
+        position: fixed; bottom: 20px; right: 20px; 
+        background: ${type === 'warning' ? '#ff9800' : '#333'}; 
+        color: white; padding: 12px 24px; border-radius: 8px; 
+        z-index: 9999; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        font-family: 'Outfit', sans-serif; animation: slideUp 0.3s ease;
+    `;
+    toast.textContent = msg;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 5000);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    checkBackendConnection();
+});
+
 // State
 let currentAnime = null;
 let currentSlug = null;
