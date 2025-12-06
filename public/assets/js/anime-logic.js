@@ -320,17 +320,6 @@ function renderAnimeGrid(animeList, container) {
                 <span class="type">${type}</span>
                 <h4>${title}</h4>
             </div>
-        `;
-
-        container.appendChild(card);
-    });
-}
-
-
-async function setupPlayerPage() {
-    const params = new URLSearchParams(window.location.search);
-    const response = await fetch(`${API_URL}/anime/${animeId}`);
-    const data = await response.json();
     if (data.data) {
         currentAnime = data.data;
         initializePlayer(currentAnime);
@@ -349,11 +338,11 @@ async function initializePlayer(anime) {
     // We will update details AFTER fetching backend data to prefer Spanish
     // Initial render with Jikan data (English) as placeholder
     let detailsHtml = `
-        <h2>${anime.title}</h2>
+            < h2 > ${ anime.title }</h2 >
         <p><strong>Géneros:</strong> ${anime.genres ? anime.genres.map(g => g.name).join(', ') : 'N/A'}</p>
         <p><strong>Episodios:</strong> ${anime.episodes || '?'}</p>
         <p><strong>Sinopsis:</strong> ${anime.synopsis || ''}</p>
-    `;
+        `;
     const infoDiv = document.getElementById('animeInfoDetailed');
     if (infoDiv) infoDiv.innerHTML = detailsHtml;
 
@@ -377,19 +366,19 @@ async function initializePlayer(anime) {
 
     // Fetch Episodes & Spanish Details
     try {
-        const response = await fetch(`${BACKEND_URL}/anime/${encodeURIComponent(anime.title)}`);
+        const response = await fetch(`${ BACKEND_URL } /anime/${ encodeURIComponent(anime.title) } `);
         const data = await response.json();
 
         if (data.success) {
             // UDPATE INFO WITH SPANISH DATA
             if (data.description || data.genres) {
                 detailsHtml = `
-                    <h2>${anime.title}</h2>
+            < h2 > ${ anime.title }</h2 >
                     <p><strong>Géneros:</strong> ${data.genres ? data.genres.join(', ') : (anime.genres ? anime.genres.map(g => g.name).join(', ') : 'N/A')}</p>
                     <p><strong>Estado:</strong> ${data.status || 'Desconocido'} &nbsp;|&nbsp; <strong>Calificación:</strong> ${data.rate || 'N/A'}</p> 
                     <p><strong>Episodios:</strong> ${data.episodes.length}</p>
                     <p class="synopsis-es"><strong>Sinopsis:</strong> ${data.description || anime.synopsis || 'Sin descripción.'}</p>
-                `;
+        `;
                 if (infoDiv) infoDiv.innerHTML = detailsHtml;
             }
 
@@ -442,40 +431,40 @@ async function fetchVideoLinks(episodeNumber) {
 
         nextBtn.disabled = !hasNext;
         nextBtn.innerHTML = hasNext
-            ? `Siguiente (Ep ${nextEpNum}) <i class="fas fa-chevron-right"></i>`
-            : `Siguiente <i class="fas fa-chevron-right"></i>`;
+            ? `Siguiente(Ep ${ nextEpNum }) < i class="fas fa-chevron-right" ></i > `
+            : `Siguiente < i class="fas fa-chevron-right" ></i > `;
 
         prevBtn.disabled = !hasPrev;
         prevBtn.innerHTML = hasPrev
-            ? `<i class="fas fa-chevron-left"></i> Anterior (Ep ${prevEpNum})`
-            : `<i class="fas fa-chevron-left"></i> Anterior`;
+            ? `< i class="fas fa-chevron-left" ></i > Anterior(Ep ${ prevEpNum })`
+            : `< i class="fas fa-chevron-left" ></i > Anterior`;
 
         // Update Title / Status
         const activeTitle = document.getElementById('activeEpisodeTitle');
         if (activeTitle) {
             activeTitle.style.display = 'block';
-            activeTitle.textContent = `Viendo Episodio ${currentEp}`;
+            activeTitle.textContent = `Viendo Episodio ${ currentEp } `;
         }
     }
     if (serverList) serverList.innerHTML = '<div class="loading">Obteniendo servidores...</div>';
 
     try {
-        const response = await fetch(`${BACKEND_URL}/videos/${currentSlug}/${episodeNumber}`);
-        const data = await response.json();
+        const response = await fetch(`${ BACKEND_URL } /videos/${ currentSlug }/${episodeNumber}`);
+    const data = await response.json();
 
-        if (data.success && data.servers.length > 0) {
-            updateServerButtons(data.servers);
-            // Auto-play first server
-            changeServer(data.servers[0].name, data.servers[0].url);
-        } else {
-            if (serverList) serverList.innerHTML = '<p>No hay servidores disponibles.</p>';
-            if (placeholderMessage) placeholderMessage.querySelector('p').textContent = 'No se encontraron opciones de video.';
-        }
-    } catch (error) {
-        console.error('Error fetching video servers:', error);
-        if (serverList) serverList.innerHTML = '<p>Error al cargar servidores.</p>';
-        if (placeholderMessage) placeholderMessage.querySelector('p').textContent = 'Error al conectar con el servidor de videos.';
+    if (data.success && data.servers.length > 0) {
+        updateServerButtons(data.servers);
+        // Auto-play first server
+        changeServer(data.servers[0].name, data.servers[0].url);
+    } else {
+        if (serverList) serverList.innerHTML = '<p>No hay servidores disponibles.</p>';
+        if (placeholderMessage) placeholderMessage.querySelector('p').textContent = 'No se encontraron opciones de video.';
     }
+} catch (error) {
+    console.error('Error fetching video servers:', error);
+    if (serverList) serverList.innerHTML = '<p>Error al cargar servidores.</p>';
+    if (placeholderMessage) placeholderMessage.querySelector('p').textContent = 'Error al conectar con el servidor de videos.';
+}
 }
 
 function renderEpisodes(episodes) {
