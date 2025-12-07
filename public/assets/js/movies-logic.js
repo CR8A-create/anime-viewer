@@ -93,12 +93,135 @@ function openMoviePlayer(item) {
     window.location.href = `ver.html?${params.toString()}`;
 }
 
+// ===================================================================
+// CAROUSEL IMPLEMENTATION (Dynamic with Random Movies)
+// ===================================================================
+
+let carouselInterval;
+let currentSlide = 0;
+let carouselMovies = [];
+
+async function fetchMoviesForCarousel() {
+    try {
+        // Fetch first 2 pages to get ~40 movies
+        const [page1, page2] = await Promise.all([
+            fetch(`${BACKEND_URL}/movies/popular?page=1`).then(r => r.json()),
+            fetch(`${BACKEND_URL}/movies/popular?page=2`).then(r => r.json())
+        ]);
+
+        let allMovies = [];
+        if (page1.success) allMovies = allMovies.concat(page1.data.results);
+        if (page2.success) allMovies = allMovies.concat(page2.data.results);
+
+        // Shuffle and take first 5
+        const shuffled = allMovies.sort(() => 0.5 - Math.random());
+        return shuffled.slice(0, 5);
+    } catch (error) {
+        console.error('Error fetching movies for carousel:', error);
+        return [];
+    }
+}
+
+function setupCarousel(movies) {
+    carouselMovies = movies;
+    const track = document.getElementById('carouselTrack');
+    const indicators = document.getElementById('carouselIndicators');
+
+    if (!track || !indicators) return;
+
+    track.innerHTML = '';
+    indicators.innerHTML = '';
+
+    carouselMovies.forEach((movie, index) => {
+        const slide = document.createElement('div');
+        slide.className = `hero-slide ${index === 0 ? 'active' : ''}`;
+
+        const backdropUrl = movie.backdrop_path
+            ? `${TMDB_IMAGE}/original${movie.backdrop_path}`
+            : `${TMDB_IMAGE}/w500${movie.poster_path}`;
+        const posterUrl = `${TMDB_IMAGE}/w500${movie.poster_path}`;
+        const title = movie.title || movie.name;
+        const overview = movie.overview ? movie.overview.substring(0, 200) + '...' : 'Sin descripción disponible.';
+        const rating = movie.vote_average ? movie.vote_average.toFixed(1) : 'N/A';
+        const type = movie.media_type === 'tv' || movie.first_air_date ? 'Serie' : 'Película';
+
+        slide.innerHTML = `
+            <div class="hero-backdrop" style="background-image: url('${backdropUrl}');"></div>
+            <div class="hero-container container">
+                <div class="hero-poster">
+                    <img src="${posterUrl}" alt="${title}">
+                </div>
+                <div class="hero-content">
+                    <div class="hero-meta">
+                        <span class="status-badge">${type} ⭐${rating}</span>
+                    </div>
+                    <h2>${title}</h2>
+                    <p>${overview}</p>
+                    <button class="btn-primary" onclick="openMoviePlayer(carouselMovies[${index}])">Ver Ahora</button>
+                </div>
+            </div>
+        `;
+        track.appendChild(slide);
+
+        const dot = document.createElement('div');
+        dot.className = `indicator ${index === 0 ? 'active' : ''}`;
+        dot.onclick = () => goToSlide(index);
+        indicators.appendChild(dot);
+    });
+
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    if (prevBtn) prevBtn.onclick = prevSlide;
+    if (nextBtn) nextBtn.onclick = nextSlide;
+
+    startCarousel();
+}
+
+function startCarousel() {
+    if (carouselInterval) clearInterval(carouselInterval);
+    carouselInterval = setInterval(nextSlide, 5000);
+}
+
+function goToSlide(index) {
+    const slides = document.querySelectorAll('.hero-slide');
+    const dots = document.querySelectorAll('.indicator');
+    if (!slides.length) return;
+
+    slides[currentSlide].classList.remove('active');
+    dots[currentSlide].classList.remove('active');
+
+    currentSlide = index;
+
+    slides[currentSlide].classList.add('active');
+    dots[currentSlide].classList.add('active');
+
+    startCarousel();
+}
+
+function nextSlide() {
+    let next = currentSlide + 1;
+    if (next >= carouselMovies.length) next = 0;
+    goToSlide(next);
+}
+
+function prevSlide() {
+    let prev = currentSlide - 1;
+    if (prev < 0) prev = carouselMovies.length - 1;
+    goToSlide(prev);
+}
+
 // Initialize on DOMContentLoaded
 document.addEventListener('DOMContentLoaded', async () => {
     const moviesGrid = document.getElementById('moviesGrid');
     const seriesGrid = document.getElementById('seriesGrid');
     const searchInput = document.getElementById('searchInput');
     const searchBtn = document.getElementById('searchBtn');
+
+    // Load carousel with random popular movies
+    const moviesForCarousel = await fetchMoviesForCarousel();
+    if (moviesForCarousel.length > 0) {
+        setupCarousel(moviesForCarousel);
+    }
 
     // Load popular movies
     if (moviesGrid) {
