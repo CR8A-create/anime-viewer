@@ -83,7 +83,7 @@ app.get('/api/airing', async (req, res) => {
         const $ = cheerio.load(response.data);
         const airingAnime = [];
 
-        $('.ListAnimes li article').slice(0, 5).each((i, el) => {
+        $('.ListAnimes li article').slice(0, 24).each((i, el) => {
             const $el = $(el);
             const title = $el.find('.Title').text().trim();
             const image = $el.find('img').attr('src');

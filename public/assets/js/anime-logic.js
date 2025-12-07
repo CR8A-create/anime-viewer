@@ -154,12 +154,19 @@ function setupEmisionPage() {
     }
 }
 
-async function fetchAllAnime(container) {
+// Pagination state
+let currentPage = 1;
+let currentFilter = { type: 'all' }; // { type: 'all' | 'genre' | 'letter', value: '' }
+
+async function fetchAllAnime(container, page = 1) {
     try {
-        const response = await fetch(`${API_URL}/top/anime?limit=24`);
+        const response = await fetch(`${API_URL}/top/anime?page=${page}&limit=24`);
         const data = await response.json();
         if (data.data && data.data.length > 0) {
             renderAnimeGrid(data.data, container);
+            updatePagination(data.pagination, 'all');
+        } else if (page === 1) {
+            if (container) container.innerHTML = '<p class="error">No se encontraron animes.</p>';
         }
     } catch (error) {
         console.error('Error fetching all anime:', error);
@@ -180,13 +187,14 @@ async function fetchAiringAnime(container) {
     }
 }
 
-async function fetchAnimeByGenre(genreId, container) {
+async function fetchAnimeByGenre(genreId, container, page = 1) {
     try {
         if (container) container.innerHTML = '<div class="loading">Filtrando por género...</div>';
-        const response = await fetch(`${API_URL}/anime?genres=${genreId}&limit=24`);
+        const response = await fetch(`${API_URL}/anime?genres=${genreId}&page=${page}&limit=24`);
         const data = await response.json();
         if (data.data && data.data.length > 0) {
             renderAnimeGrid(data.data, container);
+            updatePagination(data.pagination, 'genre', genreId);
         } else {
             if (container) container.innerHTML = '<p class="error">No se encontraron animes en este género.</p>';
         }
@@ -207,12 +215,22 @@ function filterByLetter(letter) {
         btn.classList.toggle('active', btn.dataset.letter === letter || (letter === '' && btn.textContent === 'Todo'));
     });
 
+    if (letter === '') {
+        currentFilter = { type: 'all' };
+        fetchAllAnime(directoryGrid, 1);
+        return;
+    }
+
+    currentFilter = { type: 'letter', value: letter };
+    currentPage = 1;
+
     // Fetch anime starting with letter
-    fetch(`${API_URL}/anime?q=${letter}&limit=24`)
+    fetch(`${API_URL}/anime?q=${letter}&page=1&limit=24`)
         .then(res => res.json())
         .then(data => {
             if (data.data && data.data.length > 0) {
                 renderAnimeGrid(data.data, directoryGrid);
+                updatePagination(data.pagination, 'letter', letter);
             } else {
                 if (directoryGrid) directoryGrid.innerHTML = '<p class="error">No se encontraron animes.</p>';
             }
@@ -221,6 +239,75 @@ function filterByLetter(letter) {
             console.error('Error filtering by letter:', error);
             if (directoryGrid) directoryGrid.innerHTML = '<p class="error">Error al filtrar.</p>';
         });
+}
+
+function updatePagination(pagination, filterType, filterValue = '') {
+    const paginationContainer = document.getElementById('pagination');
+    if (!paginationContainer || !pagination) return;
+
+    const { current_page, last_visible_page, has_next_page } = pagination;
+    currentPage = current_page;
+    currentFilter = { type: filterType, value: filterValue };
+
+    paginationContainer.innerHTML = '';
+
+    // Previous button
+    const prevBtn = document.createElement('button');
+    prevBtn.className = 'page-btn';
+    prevBtn.innerHTML = '<i class="fas fa-chevron-left"></i> Anterior';
+    prevBtn.disabled = current_page === 1;
+    prevBtn.onclick = () => goToPage(current_page - 1);
+    paginationContainer.appendChild(prevBtn);
+
+    // Page numbers (show current, previous, next)
+    const pagesToShow = [];
+    if (current_page > 1) pagesToShow.push(current_page - 1);
+    pagesToShow.push(current_page);
+    if (has_next_page) pagesToShow.push(current_page + 1);
+
+    pagesToShow.forEach(pageNum => {
+        const pageBtn = document.createElement('button');
+        pageBtn.className = `page-btn ${pageNum === current_page ? 'active' : ''}`;
+        pageBtn.textContent = pageNum;
+        pageBtn.onclick = () => goToPage(pageNum);
+        paginationContainer.appendChild(pageBtn);
+    });
+
+    // Next button
+    const nextBtn = document.createElement('button');
+    nextBtn.className = 'page-btn';
+    nextBtn.innerHTML = 'Siguiente <i class="fas fa-chevron-right"></i>';
+    nextBtn.disabled = !has_next_page;
+    nextBtn.onclick = () => goToPage(current_page + 1);
+    paginationContainer.appendChild(nextBtn);
+}
+
+function goToPage(page) {
+    const directoryGrid = document.getElementById('directoryGrid');
+    if (!directoryGrid) return;
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    switch (currentFilter.type) {
+        case 'all':
+            fetchAllAnime(directoryGrid, page);
+            break;
+        case 'genre':
+            fetchAnimeByGenre(currentFilter.value, directoryGrid, page);
+            break;
+        case 'letter':
+            directoryGrid.innerHTML = '<div class="loading">Cargando...</div>';
+            fetch(`${API_URL}/anime?q=${currentFilter.value}&page=${page}&limit=24`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.data && data.data.length > 0) {
+                        renderAnimeGrid(data.data, directoryGrid);
+                        updatePagination(data.pagination, 'letter', currentFilter.value);
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+            break;
+    }
 }
 
 // State
