@@ -32,7 +32,7 @@
         <div class="video-container">
             <h3 id="activeTitle" style="text-align: center; margin-bottom: 15px; color: var(--neon-purple);"></h3>
             <div class="video-wrapper">
-                <iframe id="videoPlayer" src="" frameborder="0" allowfullscreen></iframe>
+                <iframe id="videoPlayer" src="" frameborder="0" allowfullscreen allow="autoplay"></iframe>
                 <div id="placeholderMessage" class="placeholder-message">
                     <i class="fas fa-film"></i>
                     <h3>Selecciona un Servidor</h3>
@@ -67,7 +67,16 @@
         const title = params.get('title');
         const type = params.get('type'); // 'movie' or 'tv'
 
-        document.getElementById('activeTitle').textContent = title;
+        // Validate parameters - prevent issues if missing
+        if (!tmdbId || !title) {
+            console.error('Missing required parameters');
+            document.getElementById('activeTitle').textContent = 'Error: Contenido no encontrado';
+            document.getElementById('placeholderMessage').querySelector('p').textContent = 'Por favor, selecciona una película o serie desde la página principal.';
+            document.querySelector('.server-list').innerHTML = '<p style="color: #ff4444; padding: 10px;">No se pudo cargar el contenido. <a href="index.html" style="color: var(--neon-purple);">Volver al inicio</a></p>';
+        } else {
+            document.getElementById('activeTitle').textContent = title;
+            loadServers();
+        }
 
         async function loadServers() {
             const serverList = document.querySelector('.server-list');
@@ -75,7 +84,7 @@
 
             try {
                 const endpoint = type === 'tv'
-                    ? `/series/servers/${tmdbId}/1/1` // Default: Season 1, Episode 1
+                    ? `/series/servers/${tmdbId}/1/1`
                     : `/movies/servers/${tmdbId}`;
 
                 const response = await fetch(`${BACKEND_URL}${endpoint}`);
@@ -83,14 +92,21 @@
 
                 if (data.success && data.servers.length > 0) {
                     serverList.innerHTML = '';
+
+                    // Add Spanish audio info note
+                    const note = document.createElement('p');
+                    note.style.cssText = 'font-size: 0.85rem; color: #ffa500; margin: 0 0 15px 0; padding: 10px; background: rgba(255, 165, 0, 0.1); border-radius: 5px;';
+                    note.innerHTML = '<i class="fas fa-info-circle"></i> <strong>Audio:</strong> La mayoría del contenido está en inglés. Algunos servidores pueden tener audio en español (Latino/España) - prueba diferentes servidores si el primero no tiene español.';
+                    serverList.appendChild(note);
+
                     data.servers.forEach((server, idx) => {
                         const btn = document.createElement('button');
                         btn.className = 'server-btn';
                         btn.textContent = server.name;
                         btn.onclick = () => changeServer(server.name, server.url);
                         if (idx === 0) {
-                            // Auto-select first server
-                            setTimeout(() => btn.click(), 500);
+                            // Auto-select first server after delay
+                            setTimeout(() => btn.click(), 800);
                         }
                         serverList.appendChild(btn);
                     });
@@ -98,8 +114,8 @@
                     serverList.innerHTML = '<p>No hay servidores disponibles</p>';
                 }
             } catch (error) {
-                console.error('Error:', error);
-                serverList.innerHTML = '<p>Error al cargar servidores</p>';
+                console.error('Error loading servers:', error);
+                serverList.innerHTML = '<p style="color: #ff4444;">Error al cargar servidores. <a href="index.html" style="color: var(--neon-purple);">Volver al inicio</a></p>';
             }
         }
 
@@ -115,8 +131,6 @@
                 btn.classList.toggle('active', btn.textContent === name);
             });
         }
-
-        loadServers();
     </script>
 </body>
 
