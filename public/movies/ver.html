@@ -35,15 +35,15 @@
                 <iframe id="videoPlayer" src="" frameborder="0" allowfullscreen allow="autoplay"></iframe>
                 <div id="placeholderMessage" class="placeholder-message">
                     <i class="fas fa-film"></i>
-                    <h3>Selecciona un Servidor</h3>
-                    <p>Cargando...</p>
+                    <h3>Selecciona un idioma</h3>
+                    <p>Cargando opciones...</p>
                 </div>
             </div>
         </div>
 
         <div class="server-controls">
-            <span><i class="fas fa-server"></i> Servidores:</span>
-            <div class="server-list">
+            <span><i class="fas fa-language"></i> Audio disponible:</span>
+            <div class="server-list" id="audioOptions">
                 <button class="server-btn">Cargando...</button>
             </div>
         </div>
@@ -58,68 +58,92 @@
     </footer>
 
     <script>
-        const BACKEND_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-            ? 'http://localhost:3000/api'
-            : 'https://mi-anime-api.onrender.com/api';
+        // NEW: Use Cuevana backend
+        const MOVIES_BACKEND_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+            ? 'http://localhost:4000/api'
+            : 'https://TU-RENDER-MOVIES.onrender.com/api'; // Usuario configurará esto
 
         const params = new URLSearchParams(window.location.search);
-        const tmdbId = params.get('id');
+        const contentId = params.get('id');
         const title = params.get('title');
         const type = params.get('type'); // 'movie' or 'tv'
 
-        // Validate parameters - prevent issues if missing
-        if (!tmdbId || !title) {
+        // Validate parameters
+        if (!contentId || !title) {
             console.error('Missing required parameters');
             document.getElementById('activeTitle').textContent = 'Error: Contenido no encontrado';
             document.getElementById('placeholderMessage').querySelector('p').textContent = 'Por favor, selecciona una película o serie desde la página principal.';
-            document.querySelector('.server-list').innerHTML = '<p style="color: #ff4444; padding: 10px;">No se pudo cargar el contenido. <a href="index.html" style="color: var(--neon-purple);">Volver al inicio</a></p>';
+            document.getElementById('audioOptions').innerHTML = '<p style="color: #ff4444; padding: 10px;">No se pudo cargar el contenido. <a href="index.html" style="color: var(--neon-purple);">Volver al inicio</a></p>';
         } else {
             document.getElementById('activeTitle').textContent = title;
-            loadServers();
+            loadStreamingOptions();
         }
 
-        async function loadServers() {
-            const serverList = document.querySelector('.server-list');
-            serverList.innerHTML = '<div class="loading">Obteniendo servidores...</div>';
+        async function loadStreamingOptions() {
+            const audioOptions = document.getElementById('audioOptions');
+            const movieInfo = document.getElementById('movieInfo');
+
+            audioOptions.innerHTML = '<div class="loading">Obteniendo opciones de audio...</div>';
 
             try {
-                const endpoint = type === 'tv'
-                    ? `/series/servers/${tmdbId}/1/1`
-                    : `/movies/servers/${tmdbId}`;
-
-                const response = await fetch(`${BACKEND_URL}${endpoint}`);
+                const endpoint = `/watch/${type}/${contentId}`;
+                const response = await fetch(`${MOVIES_BACKEND_URL}${endpoint}`);
                 const data = await response.json();
 
-                if (data.success && data.servers.length > 0) {
-                    serverList.innerHTML = '';
+                if (data.success && data.data) {
+                    const { streamingOptions, synopsis, poster } = data.data;
 
-                    // Add Spanish audio info note
-                    const note = document.createElement('p');
-                    note.style.cssText = 'font-size: 0.85rem; color: #ffa500; margin: 0 0 15px 0; padding: 10px; background: rgba(255, 165, 0, 0.1); border-radius: 5px;';
-                    note.innerHTML = '<i class="fas fa-info-circle"></i> <strong>Audio:</strong> La mayoría del contenido está en inglés. Algunos servidores pueden tener audio en español (Latino/España) - prueba diferentes servidores si el primero no tiene español.';
-                    serverList.appendChild(note);
+                    // Show movie info
+                    if (synopsis || poster) {
+                        movieInfo.innerHTML = `
+                            ${poster ? `<img src="${poster}" alt="${title}" style="max-width: 200px; border-radius: 10px; margin-bottom: 15px;">` : ''}
+                            ${synopsis ? `<p>${synopsis}</p>` : ''}
+                        `;
+                    }
 
-                    data.servers.forEach((server, idx) => {
-                        const btn = document.createElement('button');
-                        btn.className = 'server-btn';
-                        btn.textContent = server.name;
-                        btn.onclick = () => changeServer(server.name, server.url);
-                        if (idx === 0) {
-                            // Auto-select first server after delay
-                            setTimeout(() => btn.click(), 800);
-                        }
-                        serverList.appendChild(btn);
-                    });
+                    // Show audio options
+                    if (streamingOptions && streamingOptions.length > 0) {
+                        audioOptions.innerHTML = '';
+
+                        // Add Spanish notice
+                        const notice = document.createElement('p');
+                        notice.style.cssText = 'font-size: 0.9rem; color: #4ade80; margin: 0 0 15px 0; padding: 10px; background: rgba(74, 222, 128, 0.1); border-radius: 5px;';
+                        notice.innerHTML = '<i class="fas fa-check-circle"></i> <strong>Contenido en ESPAÑOL desde Cuevana</strong>';
+                        audioOptions.appendChild(notice);
+
+                        streamingOptions.forEach((option, idx) => {
+                            const btn = document.createElement('button');
+                            btn.className = 'server-btn';
+
+                            // Format audio type
+                            let audioLabel = option.audio.toUpperCase();
+                            if (option.audio.includes('latino')) audioLabel = '🇲🇽 Latino';
+                            else if (option.audio.includes('castellano')) audioLabel = '🇪🇸 Castellano';
+                            else if (option.audio.includes('subtitulado')) audioLabel = '📝 Subtitulado';
+
+                            btn.textContent = audioLabel;
+                            btn.onclick = () => loadVideo(audioLabel, option.url);
+
+                            if (idx === 0) {
+                                // Auto-select first option
+                                setTimeout(() => btn.click(), 1000);
+                            }
+
+                            audioOptions.appendChild(btn);
+                        });
+                    } else {
+                        audioOptions.innerHTML = '<p style="color: #ffa500;">No se encontraron opciones de audio. Intenta buscar otro contenido.</p>';
+                    }
                 } else {
-                    serverList.innerHTML = '<p>No hay servidores disponibles</p>';
+                    audioOptions.innerHTML = '<p style="color: #ff4444;">No se pudo cargar el contenido. <a href="index.html" style="color: var(--neon-purple);">Volver</a></p>';
                 }
             } catch (error) {
-                console.error('Error loading servers:', error);
-                serverList.innerHTML = '<p style="color: #ff4444;">Error al cargar servidores. <a href="index.html" style="color: var(--neon-purple);">Volver al inicio</a></p>';
+                console.error('Error loading streaming options:', error);
+                audioOptions.innerHTML = '<p style="color: #ff4444;">Error de conexión con el servidor. <a href="index.html" style="color: var(--neon-purple);">Volver</a></p>';
             }
         }
 
-        function changeServer(name, url) {
+        function loadVideo(audioType, url) {
             const player = document.getElementById('videoPlayer');
             const placeholder = document.getElementById('placeholderMessage');
 
@@ -128,8 +152,10 @@
             player.src = url;
 
             document.querySelectorAll('.server-btn').forEach(btn => {
-                btn.classList.toggle('active', btn.textContent === name);
+                btn.classList.toggle('active', btn.textContent === audioType);
             });
+
+            console.log(`Playing ${audioType}: ${url}`);
         }
     </script>
 </body>

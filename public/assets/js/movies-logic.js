@@ -1,39 +1,29 @@
-// Movies Logic - Similar to anime-logic.js but for TMDB
-console.log("Movies Logic Loaded");
+// Movies Logic - Cuevana Scraper Backend
+console.log("Movies Logic Loaded - Cuevana Backend");
 
 const TMDB_IMAGE = 'https://image.tmdb.org/t/p';
-const BACKEND_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-    ? 'http://localhost:3000/api'
-    : 'https://mi-anime-api.onrender.com/api';
 
-// Fetch popular movies
-async function fetchPopularMovies(page = 1) {
+// NEW: Separate backend for movies
+const MOVIES_BACKEND_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? 'http://localhost:4000/api'  // Local: puerto 4000
+    : (process.env.MOVIES_BACKEND_URL || 'https://TU-RENDER-MOVIES.onrender.com/api'); // Producción: usuario configurará
+
+// Fetch popular movies from Cuevana
+async function fetchPopularMovies() {
     try {
-        const response = await fetch(`${BACKEND_URL}/movies/popular?page=${page}`);
+        const response = await fetch(`${MOVIES_BACKEND_URL}/popular`);
         const data = await response.json();
-        return data.success ? data.data.results : [];
+        return data.success ? data.data : [];
     } catch (error) {
         console.error('Error fetching popular movies:', error);
         return [];
     }
 }
 
-// Fetch airing series
-async function fetchAiringSeries(page = 1) {
-    try {
-        const response = await fetch(`${BACKEND_URL}/series/airing?page=${page}`);
-        const data = await response.json();
-        return data.success ? data.data.results : [];
-    } catch (error) {
-        console.error('Error fetching airing series:', error);
-        return [];
-    }
-}
-
-// Search multi (movies + series)
+// Search content in Cuevana
 async function searchContent(query) {
     try {
-        const response = await fetch(`${BACKEND_URL}/movies/search?query=${encodeURIComponent(query)}`);
+        const response = await fetch(`${MOVIES_BACKEND_URL}/search?query=${encodeURIComponent(query)}`);
         const data = await response.json();
         return data.success ? data.data : [];
     } catch (error) {
@@ -53,22 +43,19 @@ function renderMovieGrid(items, container) {
     }
 
     items.forEach(item => {
-        // Skip if no poster
-        if (!item.poster_path) return;
-
         const card = document.createElement('div');
         card.className = 'anime-card'; // Reuse anime styles
         card.onclick = () => openMoviePlayer(item);
 
         const title = item.title || item.name;
-        const poster = `${TMDB_IMAGE}/w500${item.poster_path}`;
-        const type = item.media_type === 'tv' || item.first_air_date ? 'Serie' : 'Película';
-        const rating = item.vote_average ? item.vote_average.toFixed(1) : 'N/A';
+        const poster = item.poster || 'https://via.placeholder.com/300x450?text=No+Image';
+        const type = item.type === 'tv' ? 'Serie' : 'Película';
+        const rating = item.rating || item.year || '';
 
         card.innerHTML = `
-            <img src="${poster}" alt="${title}" loading="lazy">
+            <img src="${poster}" alt="${title}" loading="lazy" onerror="this.src='https://via.placeholder.com/300x450?text=No+Image'">
             <div class="card-info">
-                <span class="type">${type} ⭐${rating}</span>
+                <span class="type">${type} ${rating}</span>
                 <h4>${title}</h4>
             </div>
         `;
@@ -82,19 +69,13 @@ function openMoviePlayer(item) {
     const params = new URLSearchParams();
     params.set('id', item.id);
     params.set('title', item.title || item.name);
-
-    // Determine type
-    let type = 'movie';
-    if (item.media_type === 'tv' || item.first_air_date || item.name) {
-        type = 'tv';
-    }
-    params.set('type', type);
+    params.set('type', item.type || 'movie');
 
     window.location.href = `ver.html?${params.toString()}`;
 }
 
 // ===================================================================
-// CAROUSEL IMPLEMENTATION (Dynamic with Random Movies)
+// CAROUSEL IMPLEMENTATION (Dynamic with Random Movies from Cuevana)
 // ===================================================================
 
 let carouselInterval;
@@ -103,18 +84,10 @@ let carouselMovies = [];
 
 async function fetchMoviesForCarousel() {
     try {
-        // Fetch first 2 pages to get ~40 movies
-        const [page1, page2] = await Promise.all([
-            fetch(`${BACKEND_URL}/movies/popular?page=1`).then(r => r.json()),
-            fetch(`${BACKEND_URL}/movies/popular?page=2`).then(r => r.json())
-        ]);
-
-        let allMovies = [];
-        if (page1.success) allMovies = allMovies.concat(page1.data.results);
-        if (page2.success) allMovies = allMovies.concat(page2.data.results);
+        const movies = await fetchPopularMovies();
 
         // Shuffle and take first 5
-        const shuffled = allMovies.sort(() => 0.5 - Math.random());
+        const shuffled = movies.sort(() => 0.5 - Math.random());
         return shuffled.slice(0, 5);
     } catch (error) {
         console.error('Error fetching movies for carousel:', error);
@@ -136,27 +109,22 @@ function setupCarousel(movies) {
         const slide = document.createElement('div');
         slide.className = `hero-slide ${index === 0 ? 'active' : ''}`;
 
-        const backdropUrl = movie.backdrop_path
-            ? `${TMDB_IMAGE}/original${movie.backdrop_path}`
-            : `${TMDB_IMAGE}/w500${movie.poster_path}`;
-        const posterUrl = `${TMDB_IMAGE}/w500${movie.poster_path}`;
+        const posterUrl = movie.poster || 'https://via.placeholder.com/300x450?text=No+Image';
         const title = movie.title || movie.name;
-        const overview = movie.overview ? movie.overview.substring(0, 200) + '...' : 'Sin descripción disponible.';
-        const rating = movie.vote_average ? movie.vote_average.toFixed(1) : 'N/A';
-        const type = movie.media_type === 'tv' || movie.first_air_date ? 'Serie' : 'Película';
+        const type = movie.type === 'tv' ? 'Serie' : 'Película';
 
         slide.innerHTML = `
-            <div class="hero-backdrop" style="background-image: url('${backdropUrl}');"></div>
+            <div class="hero-backdrop" style="background-image: url('${posterUrl}');"></div>
             <div class="hero-container container">
                 <div class="hero-poster">
-                    <img src="${posterUrl}" alt="${title}">
+                    <img src="${posterUrl}" alt="${title}" onerror="this.src='https://via.placeholder.com/300x450?text=No+Image'">
                 </div>
                 <div class="hero-content">
                     <div class="hero-meta">
-                        <span class="status-badge">${type} ⭐${rating}</span>
+                        <span class="status-badge">${type} 🇪🇸 Español</span>
                     </div>
                     <h2>${title}</h2>
-                    <p>${overview}</p>
+                    <p>Contenido disponible en español desde Cuevana</p>
                     <button class="btn-primary" onclick="openMoviePlayer(carouselMovies[${index}])">Ver Ahora</button>
                 </div>
             </div>
@@ -225,16 +193,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Load popular movies
     if (moviesGrid) {
-        moviesGrid.innerHTML = '<div class="loading">Cargando películas...</div>';
+        moviesGrid.innerHTML = '<div class="loading">Cargando películas desde Cuevana...</div>';
         const movies = await fetchPopularMovies();
         renderMovieGrid(movies, moviesGrid);
     }
 
-    // Load airing series
+    // For series grid, we can use same popular for now or hide it
     if (seriesGrid) {
-        seriesGrid.innerHTML = '<div class="loading">Cargando series...</div>';
-        const series = await fetchAiringSeries();
-        renderMovieGrid(series, seriesGrid);
+        seriesGrid.parentElement.style.display = 'none'; // Hide series section for now
     }
 
     // Search functionality
@@ -242,7 +208,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const query = searchInput ? searchInput.value.trim() : '';
         if (!query) return;
 
-        if (moviesGrid) moviesGrid.innerHTML = '<div class="loading">Buscando...</div>';
+        if (moviesGrid) moviesGrid.innerHTML = '<div class="loading">Buscando en Cuevana...</div>';
         if (seriesGrid && seriesGrid.parentElement) seriesGrid.parentElement.style.display = 'none';
 
         const results = await searchContent(query);
