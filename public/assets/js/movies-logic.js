@@ -6,7 +6,7 @@ const TMDB_IMAGE = 'https://image.tmdb.org/t/p';
 // NEW: Separate backend for movies
 const MOVIES_BACKEND_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
     ? 'http://localhost:4000/api'  // Local: puerto 4000
-    : (process.env.MOVIES_BACKEND_URL || 'https://TU-RENDER-MOVIES.onrender.com/api'); // Producción: usuario configurará
+    : (process.env.MOVIES_BACKEND_URL || 'https://movies-api-cuevana.onrender.com'); // Producción: usuario configurará
 
 // Fetch popular movies from Cuevana
 async function fetchPopularMovies() {

@@ -61,7 +61,7 @@
         // NEW: Use Cuevana backend
         const MOVIES_BACKEND_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
             ? 'http://localhost:4000/api'
-            : 'https://TU-RENDER-MOVIES.onrender.com/api'; // Usuario configurará esto
+            : 'https://movies-api-cuevana.onrender.com'; // Usuario configurará esto
 
         const params = new URLSearchParams(window.location.search);
         const contentId = params.get('id');
