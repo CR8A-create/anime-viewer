@@ -286,6 +286,125 @@ app.get('/api/videos/:slug/:episode', async (req, res) => {
     }
 });
 
+// ===================================================================
+// MOVIES & SERIES ENDPOINTS (TMDB + VidSrc/SuperEmbed)
+// ===================================================================
+
+const TMDB_API_KEY = process.env.TMDB_API_KEY || '38e61227f85671163c275f9bd95a8803';
+const TMDB_BASE = 'https://api.themoviedb.org/3';
+
+app.get('/api/movies/popular', async (req, res) => {
+    const page = req.query.page || 1;
+    const cacheKey = `movies:popular:${page}`;
+    const cached = getCache(cacheKey);
+    if (cached) return res.json(cached);
+
+    try {
+        const response = await axios.get(`${TMDB_BASE}/movie/popular`, {
+            params: { api_key: TMDB_API_KEY, language: 'es-ES', page: page }
+        });
+        const result = { success: true, data: response.data };
+        setCache(cacheKey, result);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.get('/api/series/airing', async (req, res) => {
+    const page = req.query.page || 1;
+    const cacheKey = `series:airing:${page}`;
+    const cached = getCache(cacheKey);
+    if (cached) return res.json(cached);
+
+    try {
+        const response = await axios.get(`${TMDB_BASE}/tv/on_the_air`, {
+            params: { api_key: TMDB_API_KEY, language: 'es-ES', page: page }
+        });
+        const result = { success: true, data: response.data };
+        setCache(cacheKey, result);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.get('/api/movies/search', async (req, res) => {
+    const { query } = req.query;
+    if (!query) return res.status(400).json({ success: false, message: 'Query required' });
+
+    const cacheKey = `search:${query}`;
+    const cached = getCache(cacheKey);
+    if (cached) return res.json(cached);
+
+    try {
+        const response = await axios.get(`${TMDB_BASE}/search/multi`, {
+            params: { api_key: TMDB_API_KEY, language: 'es-ES', query: query }
+        });
+        const result = { success: true, data: response.data.results };
+        setCache(cacheKey, result);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.get('/api/movies/servers/:tmdbId', async (req, res) => {
+    const { tmdbId } = req.params;
+    const cacheKey = `movie-servers:${tmdbId}`;
+    const cached = getCache(cacheKey);
+    if (cached) return res.json(cached);
+
+    const servers = [
+        { name: 'VidSrc', url: `https://vidsrc.xyz/embed/movie/${tmdbId}` },
+        { name: 'SuperEmbed', url: `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1` },
+        { name: 'Embed.su', url: `https://embed.su/embed/movie/${tmdbId}` },
+        { name: 'VidSrc.me', url: `https://vidsrc.me/embed/movie?tmdb=${tmdbId}` }
+    ];
+
+    const result = { success: true, servers };
+    setCache(cacheKey, result);
+    res.json(result);
+});
+
+app.get('/api/series/servers/:tmdbId/:season/:episode', async (req, res) => {
+    const { tmdbId, season, episode } = req.params;
+    const cacheKey = `series-servers:${tmdbId}:${season}:${episode}`;
+    const cached = getCache(cacheKey);
+    if (cached) return res.json(cached);
+
+    const servers = [
+        { name: 'VidSrc', url: `https://vidsrc.xyz/embed/tv/${tmdbId}/${season}/${episode}` },
+        { name: 'SuperEmbed', url: `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&s=${season}&e=${episode}` },
+        { name: 'Embed.su', url: `https://embed.su/embed/tv/${tmdbId}/${season}/${episode}` },
+        { name: 'VidSrc.me', url: `https://vidsrc.me/embed/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}` }
+    ];
+
+    const result = { success: true, servers };
+    setCache(cacheKey, result);
+    res.json(result);
+});
+
+app.get('/api/series/details/:tmdbId', async (req, res) => {
+    const { tmdbId } = req.params;
+    const cacheKey = `series-details:${tmdbId}`;
+    const cached = getCache(cacheKey);
+    if (cached) return res.json(cached);
+
+    try {
+        const response = await axios.get(`${TMDB_BASE}/tv/${tmdbId}`, {
+            params: { api_key: TMDB_API_KEY, language: 'es-ES' }
+        });
+        const result = { success: true, data: response.data };
+        setCache(cacheKey, result);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 app.listen(PORT, () => {
-    console.log(`Servidor API corriendo en http://localhost:${PORT}`);
+    console.log(`\n✓ Servidor API corriendo en http://localhost:${PORT}`);
+    console.log(`📺 Anime: http://localhost:${PORT}/anime/index.html`);
+    console.log(`🎬 Movies: http://localhost:${PORT}/movies/index.html\n`);
 });

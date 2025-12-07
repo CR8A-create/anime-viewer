@@ -1,0 +1,73 @@
+/* Movies Theme - Purple Style Override */
+:root {
+    --primary-color: #9333ea;
+    /* Purple-600 */
+    --primary-hover: #7c3aed;
+    /* Purple-700 */
+    --bg-dark: #0f0a1a;
+    /* Deep purple dark */
+    --bg-card: #1a1233;
+    /* Dark purple card */
+    --neon-purple: #c084fc;
+    /* Light purple */
+}
+
+body {
+    background: var(--bg-dark);
+}
+
+/* Header with purple theme */
+header {
+    background: linear-gradient(90deg, var(--bg-dark), var(--bg-card));
+    border-bottom: 2px solid var(--primary-color);
+}
+
+.highlight {
+    color: var(--primary-color);
+    text-shadow: 0 0 20px var(--neon-purple);
+}
+
+/* Hero carousel purple */
+.hero-carousel {
+    background: linear-gradient(135deg, #1a1233 0%, #0f0a1a 100%);
+}
+
+.status-badge {
+    background: linear-gradient(90deg, var(--primary-color), #a855f7);
+}
+
+.btn-primary {
+    background: var(--primary-color);
+}
+
+.btn-primary:hover {
+    background: var(--primary-hover);
+    box-shadow: 0 0 20px var(--neon-purple);
+}
+
+/* Cards with purple glow */
+.anime-card:hover {
+    box-shadow: 0 10px 30px rgba(147, 51, 234, 0.5);
+    transform: translateY(-10px);
+}
+
+/* Active navigation */
+nav a.active {
+    color: var(--primary-color);
+    border-bottom: 2px solid var(--primary-color);
+}
+
+/* Loading animations */
+.loading {
+    color: var(--neon-purple);
+}
+
+/* Page buttons */
+.page-btn:not(:disabled):hover {
+    background: var(--primary-color);
+}
+
+.page-btn.active {
+    background: var(--primary-color);
+    color: white;
+}

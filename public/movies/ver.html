@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reproduciendo - AniNova Movies</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="stylesheet" href="../assets/css/movies-theme.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+
+<body data-page="movies-player">
+    <header>
+        <div class="container header-content">
+            <div class="logo">
+                <h1>Ani<span class="highlight">Nova</span> <small style="color: var(--neon-purple);">Movies</small></h1>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="index.html">Inicio</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main id="playerContent" class="container section">
+        <button class="back-btn" onclick="window.location.href='index.html'">
+            <i class="fas fa-arrow-left"></i> Volver
+        </button>
+
+        <div class="video-container">
+            <h3 id="activeTitle" style="text-align: center; margin-bottom: 15px; color: var(--neon-purple);"></h3>
+            <div class="video-wrapper">
+                <iframe id="videoPlayer" src="" frameborder="0" allowfullscreen></iframe>
+                <div id="placeholderMessage" class="placeholder-message">
+                    <i class="fas fa-film"></i>
+                    <h3>Selecciona un Servidor</h3>
+                    <p>Cargando...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="server-controls">
+            <span><i class="fas fa-server"></i> Servidores:</span>
+            <div class="server-list">
+                <button class="server-btn">Cargando...</button>
+            </div>
+        </div>
+
+        <div class="anime-info-detailed" id="movieInfo">
+            <div class="loading">Cargando información...</div>
+        </div>
+    </main>
+
+    <footer>
+        <p>© 2025-2026 AniNova Movies</p>
+    </footer>
+
+    <script>
+        const BACKEND_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+            ? 'http://localhost:3000/api'
+            : 'https://mi-anime-api.onrender.com/api';
+
+        const params = new URLSearchParams(window.location.search);
+        const tmdbId = params.get('id');
+        const title = params.get('title');
+        const type = params.get('type'); // 'movie' or 'tv'
+
+        document.getElementById('activeTitle').textContent = title;
+
+        async function loadServers() {
+            const serverList = document.querySelector('.server-list');
+            serverList.innerHTML = '<div class="loading">Obteniendo servidores...</div>';
+
+            try {
+                const endpoint = type === 'tv'
+                    ? `/series/servers/${tmdbId}/1/1` // Default: Season 1, Episode 1
+                    : `/movies/servers/${tmdbId}`;
+
+                const response = await fetch(`${BACKEND_URL}${endpoint}`);
+                const data = await response.json();
+
+                if (data.success && data.servers.length > 0) {
+                    serverList.innerHTML = '';
+                    data.servers.forEach((server, idx) => {
+                        const btn = document.createElement('button');
+                        btn.className = 'server-btn';
+                        btn.textContent = server.name;
+                        btn.onclick = () => changeServer(server.name, server.url);
+                        if (idx === 0) {
+                            // Auto-select first server
+                            setTimeout(() => btn.click(), 500);
+                        }
+                        serverList.appendChild(btn);
+                    });
+                } else {
+                    serverList.innerHTML = '<p>No hay servidores disponibles</p>';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                serverList.innerHTML = '<p>Error al cargar servidores</p>';
+            }
+        }
+
+        function changeServer(name, url) {
+            const player = document.getElementById('videoPlayer');
+            const placeholder = document.getElementById('placeholderMessage');
+
+            placeholder.style.display = 'none';
+            player.style.display = 'block';
+            player.src = url;
+
+            document.querySelectorAll('.server-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.textContent === name);
+            });
+        }
+
+        loadServers();
+    </script>
+</body>
+
+</html>
