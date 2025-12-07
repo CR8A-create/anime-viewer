@@ -21,6 +21,28 @@ app.get('/api/health', (req, res) => {
     res.sendStatus(200);
 });
 
+// Simple in-memory cache
+const cache = new Map();
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+function getCache(key) {
+    const cached = cache.get(key);
+    if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
+        console.log(`✓ Cache HIT: ${key}`);
+        return cached.data;
+    }
+    console.log(`✗ Cache MISS: ${key}`);
+    return null;
+}
+
+function setCache(key, data) {
+    cache.set(key, { data, timestamp: Date.now() });
+    console.log(`✓ Cache SET: ${key}`);
+}
+
+// Add timeout to axios requests
+axios.defaults.timeout = 10000; // 10 seconds
+
 // Helper function to create slug from title
 function createSlug(title) {
     return title.toLowerCase()
@@ -52,6 +74,10 @@ async function searchAnimeFLV(query) {
 
 // -1. Get Airing Anime (Carousel)
 app.get('/api/airing', async (req, res) => {
+    const cacheKey = 'airing';
+    const cached = getCache(cacheKey);
+    if (cached) return res.json(cached);
+
     try {
         const response = await axios.get('https://www3.animeflv.net/browse?status=1&order=rating');
         const $ = cheerio.load(response.data);
@@ -80,7 +106,9 @@ app.get('/api/airing', async (req, res) => {
             });
         });
 
-        res.json({ success: true, data: airingAnime });
+        const result = { success: true, data: airingAnime };
+        setCache(cacheKey, result);
+        res.json(result);
     } catch (error) {
         console.error('Error scraping airing:', error.message);
         res.status(500).json({ success: false, message: 'Error fetching airing anime' });
@@ -89,6 +117,10 @@ app.get('/api/airing', async (req, res) => {
 
 // 0. Get Recent Episodes (Home Page)
 app.get('/api/recent', async (req, res) => {
+    const cacheKey = 'recent';
+    const cached = getCache(cacheKey);
+    if (cached) return res.json(cached);
+
     try {
         const response = await axios.get('https://www3.animeflv.net/');
         const $ = cheerio.load(response.data);
@@ -114,7 +146,9 @@ app.get('/api/recent', async (req, res) => {
             });
         });
 
-        res.json({ success: true, data: recentEpisodes });
+        const result = { success: true, data: recentEpisodes };
+        setCache(cacheKey, result);
+        res.json(result);
     } catch (error) {
         console.error('Error scraping recent:', error.message);
         res.status(500).json({ success: false, message: 'Error fetching recent episodes' });
@@ -124,6 +158,10 @@ app.get('/api/recent', async (req, res) => {
 // 1. Get Anime Info and Episode List
 app.get('/api/anime/:title', async (req, res) => {
     const { title } = req.params;
+    const cacheKey = `anime:${title}`;
+    const cached = getCache(cacheKey);
+    if (cached) return res.json(cached);
+
     let slug = createSlug(title);
     console.log(`Buscando información de: ${title} (Slug estimado: ${slug})`);
 
@@ -187,7 +225,7 @@ app.get('/api/anime/:title', async (req, res) => {
         // Sort by number descending (usually already sorted, but good to ensure)
         episodes.sort((a, b) => b.number - a.number);
 
-        res.json({
+        const result = {
             success: true,
             slug: slug, // Return the CORRECT slug
             description: description,
@@ -195,7 +233,10 @@ app.get('/api/anime/:title', async (req, res) => {
             status: status,
             rate: rate,
             episodes: episodes
-        });
+        };
+
+        setCache(cacheKey, result);
+        res.json(result);
 
     } catch (error) {
         console.error('Error en scraping anime:', error.message);

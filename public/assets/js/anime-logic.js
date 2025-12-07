@@ -17,15 +17,34 @@ const videoPlayer = document.getElementById('videoPlayer');
 const placeholderMessage = document.getElementById('placeholderMessage');
 const episodesList = document.getElementById('episodesList');
 
-// Connection Check
-async function checkBackendConnection() {
-    try {
-        await fetch(`${BACKEND_URL}/health`, { method: 'HEAD', signal: AbortSignal.timeout(2000) });
-        console.log('Backend connected:', BACKEND_URL);
-    } catch (e) {
-        console.warn('Backend disconnected. Falling back to Jikan English API.');
-        showToast('⚠️ Modo Sin Servidor: Mostrando datos en Inglés (Jikan API).', 'warning');
+// Connection Check with Retry Logic
+async function checkBackendConnection(retries = 3) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
+            await fetch(`${BACKEND_URL}/health`, {
+                method: 'HEAD',
+                signal: controller.signal
+            });
+
+            clearTimeout(timeoutId);
+            console.log('✓ Backend connected:', BACKEND_URL);
+            return true;
+        } catch (e) {
+            console.warn(`Backend connection attempt ${i + 1}/${retries} failed:`, e.message);
+            if (i < retries - 1) {
+                // Exponential backoff: wait 1s, then 2s, then 4s
+                const waitTime = Math.pow(2, i) * 1000;
+                await new Promise(resolve => setTimeout(resolve, waitTime));
+            }
+        }
     }
+
+    console.warn('✗ Backend unavailable after retries. Falling back to Jikan API (English content).');
+    showToast('⚠️ Servidor lento, mostrando contenido en inglés temporalmente.', 'warning');
+    return false;
 }
 
 function showToast(msg, type = 'info') {
@@ -45,11 +64,23 @@ function showToast(msg, type = 'info') {
 document.addEventListener('DOMContentLoaded', () => {
     checkBackendConnection();
 
-    // Check which page needed
-    if (document.getElementById('videoPlayer')) {
+    // Check which page we're on - CRITICAL FIX: detect by pathname, not just DOM
+    const currentPath = window.location.pathname;
+    const isPlayerPage = currentPath.includes('ver.html');
+    const isDirectoryPage = currentPath.includes('directorio');
+    const isEmisionPage = currentPath.includes('emision');
+
+    if (isPlayerPage) {
+        // Only setup player on ver.html
         setupPlayerPage();
+    } else if (isDirectoryPage) {
+        // Load directory content
+        setupDirectoryPage();
+    } else if (isEmisionPage) {
+        // Load emision content
+        setupEmisionPage();
     } else {
-        // Main/Carousel/Directory logic
+        // Main/Carousel logic for index.html
         setupHome();
     }
 
@@ -66,13 +97,130 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function setupHome() {
     if (window.location.pathname.includes('directorio') || window.location.pathname.includes('emision')) {
-        // Just fetch grid, handled by search usually or default load
+        // Handled by their specific functions now
         return;
     }
 
     fetchSeasonAnimeForCarousel();
     fetchRecentEpisodes();
     fetchTopAnime();
+}
+
+function setupDirectoryPage() {
+    console.log('Setting up Directory page');
+    const directoryGrid = document.getElementById('directoryGrid');
+    const genreSelect = document.getElementById('genreSelect');
+    const alphabetFilter = document.getElementById('alphabetFilter');
+
+    if (directoryGrid) {
+        directoryGrid.innerHTML = '<div class="loading">Cargando directorio...</div>';
+        // Load all anime from Jikan API
+        fetchAllAnime(directoryGrid);
+    }
+
+    // Setup alphabet filter buttons if they don't exist
+    if (alphabetFilter && alphabetFilter.children.length <= 1) {
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').forEach(letter => {
+            const btn = document.createElement('button');
+            btn.className = 'alpha-btn';
+            btn.textContent = letter;
+            btn.dataset.letter = letter;
+            btn.onclick = () => filterByLetter(letter);
+            alphabetFilter.appendChild(btn);
+        });
+    }
+
+    // Setup genre filter
+    if (genreSelect) {
+        genreSelect.addEventListener('change', (e) => {
+            const genreId = e.target.value;
+            if (genreId) {
+                fetchAnimeByGenre(genreId, directoryGrid);
+            } else {
+                fetchAllAnime(directoryGrid);
+            }
+        });
+    }
+}
+
+function setupEmisionPage() {
+    console.log('Setting up Emision page');
+    const emisionGrid = document.getElementById('emisionGrid');
+
+    if (emisionGrid) {
+        emisionGrid.innerHTML = '<div class="loading">Cargando animes en emisión...</div>';
+        // Load airing anime
+        fetchAiringAnime(emisionGrid);
+    }
+}
+
+async function fetchAllAnime(container) {
+    try {
+        const response = await fetch(`${API_URL}/top/anime?limit=24`);
+        const data = await response.json();
+        if (data.data && data.data.length > 0) {
+            renderAnimeGrid(data.data, container);
+        }
+    } catch (error) {
+        console.error('Error fetching all anime:', error);
+        if (container) container.innerHTML = '<p class="error">Error al cargar el directorio.</p>';
+    }
+}
+
+async function fetchAiringAnime(container) {
+    try {
+        const response = await fetch(`${BACKEND_URL}/airing`);
+        const data = await response.json();
+        if (data.success && data.data.length > 0) {
+            renderAnimeGrid(data.data, container);
+        }
+    } catch (error) {
+        console.error('Error fetching airing anime:', error);
+        if (container) container.innerHTML = '<p class="error">Error al cargar animes en emisión.</p>';
+    }
+}
+
+async function fetchAnimeByGenre(genreId, container) {
+    try {
+        if (container) container.innerHTML = '<div class="loading">Filtrando por género...</div>';
+        const response = await fetch(`${API_URL}/anime?genres=${genreId}&limit=24`);
+        const data = await response.json();
+        if (data.data && data.data.length > 0) {
+            renderAnimeGrid(data.data, container);
+        } else {
+            if (container) container.innerHTML = '<p class="error">No se encontraron animes en este género.</p>';
+        }
+    } catch (error) {
+        console.error('Error fetching by genre:', error);
+        if (container) container.innerHTML = '<p class="error">Error al filtrar por género.</p>';
+    }
+}
+
+function filterByLetter(letter) {
+    const directoryGrid = document.getElementById('directoryGrid');
+    if (directoryGrid) {
+        directoryGrid.innerHTML = '<div class="loading">Filtrando...</div>';
+    }
+
+    // Update active button
+    document.querySelectorAll('.alpha-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.letter === letter || (letter === '' && btn.textContent === 'Todo'));
+    });
+
+    // Fetch anime starting with letter
+    fetch(`${API_URL}/anime?q=${letter}&limit=24`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.data && data.data.length > 0) {
+                renderAnimeGrid(data.data, directoryGrid);
+            } else {
+                if (directoryGrid) directoryGrid.innerHTML = '<p class="error">No se encontraron animes.</p>';
+            }
+        })
+        .catch(error => {
+            console.error('Error filtering by letter:', error);
+            if (directoryGrid) directoryGrid.innerHTML = '<p class="error">Error al filtrar.</p>';
+        });
 }
 
 // State
