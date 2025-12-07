@@ -356,10 +356,10 @@ app.get('/api/movies/servers/:tmdbId', async (req, res) => {
     if (cached) return res.json(cached);
 
     const servers = [
-        { name: 'VidSrc', url: `https://vidsrc.cc/v2/embed/movie/${tmdbId}` },
-        { name: 'VidSrc.net', url: `https://vidsrc.net/embed/movie/${tmdbId}` },
-        { name: '2Embed', url: `https://www.2embed.cc/embed/${tmdbId}` },
-        { name: 'AutoEmbed', url: `https://player.autoembed.cc/embed/movie/${tmdbId}` }
+        { name: 'VidSrc.to', url: `https://vidsrc.to/embed/movie/${tmdbId}` },
+        { name: 'VidSrc PRO', url: `https://vidsrc.pro/embed/movie/${tmdbId}` },
+        { name: 'VidSrc.in', url: `https://vidsrc.in/embed/movie?tmdb=${tmdbId}` },
+        { name: 'SmashyStream', url: `https://player.smashy.stream/movie/${tmdbId}` }
     ];
 
     const result = { success: true, servers };
@@ -374,10 +374,10 @@ app.get('/api/series/servers/:tmdbId/:season/:episode', async (req, res) => {
     if (cached) return res.json(cached);
 
     const servers = [
-        { name: 'VidSrc', url: `https://vidsrc.cc/v2/embed/tv/${tmdbId}/${season}/${episode}` },
-        { name: 'VidSrc.net', url: `https://vidsrc.net/embed/tv/${tmdbId}/${season}/${episode}` },
-        { name: '2Embed', url: `https://www.2embed.cc/embedtv/${tmdbId}&s=${season}&e=${episode}` },
-        { name: 'AutoEmbed', url: `https://player.autoembed.cc/embed/tv/${tmdbId}/${season}/${episode}` }
+        { name: 'VidSrc.to', url: `https://vidsrc.to/embed/tv/${tmdbId}/${season}/${episode}` },
+        { name: 'VidSrc PRO', url: `https://vidsrc.pro/embed/tv/${tmdbId}/${season}/${episode}` },
+        { name: 'VidSrc.in', url: `https://vidsrc.in/embed/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}` },
+        { name: 'SmashyStream', url: `https://player.smashy.stream/tv/${tmdbId}?s=${season}&e=${episode}` }
     ];
 
     const result = { success: true, servers };
