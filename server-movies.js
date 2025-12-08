@@ -65,25 +65,70 @@ app.get('/api/search', async (req, res) => {
         const searchUrl = `${CUEVANA_DOMAIN}/search?q=${encodeURIComponent(query)}`;
         const response = await axios.get(searchUrl, {
             headers: { 'User-Agent': USER_AGENT },
-            const result = { success: true, data: results };
-            setCache(cacheKey, result);
+            timeout: 10000
+        });
+
+        const $ = cheerio.load(response.data);
+        const results = [];
+
+        // More robust selectors - try multiple possible structures
+        const possibleContainers = ['.item', '.movie-item', '.MovieList article', 'article', '.MovieListItem', '.TPost'];
+
+        let items = $();
+        for (const container of possibleContainers) {
+            items = $(container);
+            if (items.length > 0) {
+                console.log(`Found ${items.length} items with selector: ${container}`);
+                break;
+            }
+        }
+
+        items.each((i, elem) => {
+            const $elem = $(elem);
+
+            const title = $elem.find('.title, h2, h3, .Title').first().text().trim();
+            const link = $elem.find('a').first().attr('href');
+            const poster = $elem.find('img').first().attr('data-src') ||
+                $elem.find('img').first().attr('src') ||
+                $elem.find('img').first().attr('data-lazy-src');
+            const year = $elem.find('.year, .Year, .date, span.Date').first().text().trim();
+
+            if (title && link) {
+                const id = link.split('/').filter(x => x).pop();
+                const type = link.includes('/serie') || link.includes('/tv') ? 'tv' : 'movie';
+
+                results.push({
+                    id: id,
+                    title: title,
+                    poster: poster || 'https://via.placeholder.com/300x450?text=No+Image',
+                    year: year,
+                    type: type,
+                    link: link.startsWith('http') ? link : `${CUEVANA_DOMAIN}${link}`
+                });
+            }
+        });
+
+        console.log(`✓ Found ${results.length} results for: ${query}`);
+
+        const result = { success: true, data: results };
+        setCache(cacheKey, result);
         res.json(result);
 
-        } catch (error) {
-            console.error('❌ Search error:', error.message);
-            res.status(500).json({
-                success: false,
-                message: 'Error al buscar en Cuevana',
-                error: error.message
-            });
-        }
-    });
+    } catch (error) {
+        console.error('❌ Search error:', error.message);
+        res.status(500).json({
+            success: false,
+            message: 'Error al buscar en Cuevana',
+            error: error.message
+        });
+    }
+});
 
 // ====================================================================
 // GET MOVIE/SERIES DETAILS AND STREAMING LINKS
 // ====================================================================
 app.get('/api/watch/:type/:id', async (req, res) => {
-    const { type, id } = req.params; // type: 'movie' or 'series'
+    const { type, id } = req.params;
     const { season, episode } = req.query;
 
     const cacheKey = `watch:${type}:${id}:${season || ''}:${episode || ''}`;
@@ -93,7 +138,6 @@ app.get('/api/watch/:type/:id', async (req, res) => {
     try {
         console.log(`🎬 Getting streaming links for ${type}: ${id}`);
 
-        // Construir URL de Cuevana
         let cuevanaUrl = `${CUEVANA_DOMAIN}/${type === 'series' ? 'serie' : 'pelicula'}/${id}`;
 
         const response = await axios.get(cuevanaUrl, {
@@ -103,15 +147,12 @@ app.get('/api/watch/:type/:id', async (req, res) => {
 
         const $ = cheerio.load(response.data);
 
-        // Extraer información
         const title = $('h1').first().text().trim();
         const synopsis = $('.description').text().trim() || $('.sinopsis').text().trim();
         const poster = $('img.poster').attr('src') || $('.poster img').attr('src');
 
-        // Extraer enlaces de streaming (pueden estar en iframes o enlaces directos)
         const streamingOptions = [];
 
-        // Buscar opciones de idioma
         $('.language-options a, .audio-options a, .server-option').each((i, elem) => {
             const $elem = $(elem);
             const language = $elem.text().trim().toLowerCase();
@@ -129,7 +170,6 @@ app.get('/api/watch/:type/:id', async (req, res) => {
             }
         });
 
-        // Si no encuentra opciones específicas, buscar iframes genéricos
         if (streamingOptions.length === 0) {
             $('iframe').each((i, elem) => {
                 const src = $(elem).attr('src');
@@ -180,24 +220,61 @@ app.get('/api/popular', async (req, res) => {
 
         const response = await axios.get(CUEVANA_DOMAIN, {
             headers: { 'User-Agent': USER_AGENT },
-        });
-    }
+            timeout: 10000
         });
 
-console.log(`✓ Found ${popular.length} popular items`);
+        const $ = cheerio.load(response.data);
+        const popular = [];
 
-const result = { success: true, data: popular };
-setCache(cacheKey, result);
-res.json(result);
+        const possibleContainers = ['.item', '.movie-item', '.MovieList article', 'article', '.TPost', '.MovieListItem'];
+
+        let items = $();
+        for (const container of possibleContainers) {
+            items = $(container);
+            if (items.length > 0) {
+                console.log(`Popular: Found ${items.length} items with selector: ${container}`);
+                break;
+            }
+        }
+
+        items.slice(0, 20).each((i, elem) => {
+            const $elem = $(elem);
+
+            const title = $elem.find('.title, h2, h3, .Title').first().text().trim();
+            const link = $elem.find('a').first().attr('href');
+            const poster = $elem.find('img').first().attr('data-src') ||
+                $elem.find('img').first().attr('src') ||
+                $elem.find('img').first().attr('data-lazy-src');
+            const rating = $elem.find('.rating, .vote, .Rating').first().text().trim();
+
+            if (title && link) {
+                const id = link.split('/').filter(x => x).pop();
+                const type = link.includes('/serie') || link.includes('/tv') ? 'tv' : 'movie';
+
+                popular.push({
+                    id: id,
+                    title: title,
+                    poster: poster || 'https://via.placeholder.com/300x450?text=No+Image',
+                    rating: rating || 'N/A',
+                    type: type
+                });
+            }
+        });
+
+        console.log(`✓ Found ${popular.length} popular items`);
+
+        const result = { success: true, data: popular };
+        setCache(cacheKey, result);
+        res.json(result);
 
     } catch (error) {
-    console.error('❌ Popular error:', error.message);
-    res.status(500).json({
-        success: false,
-        message: 'Error al obtener contenido popular',
-        error: error.message
-    });
-}
+        console.error('❌ Popular error:', error.message);
+        res.status(500).json({
+            success: false,
+            message: 'Error al obtener contenido popular',
+            error: error.message
+        });
+    }
 });
 
 // ====================================================================
