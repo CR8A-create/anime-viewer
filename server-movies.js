@@ -1,7 +1,6 @@
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
-const cheerio = require('cheerio');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -34,246 +33,140 @@ function setCache(key, data) {
     console.log(`✓ Cache SET: ${key}`);
 }
 
-// Cuevana domain - puede cambiar (actualizado diciembre 2024)
-const CUEVANA_DOMAIN = process.env.CUEVANA_DOMAIN || 'https://cuevana.pro';
-
-// User agent para evitar bloqueos
-const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+// TMDB API Key (obtener de environment o usar key pública limitada)
+const TMDB_API_KEY = process.env.TMDB_API_KEY || '8c0c3a4dd69d381c7b8c';
+const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 
 // Health check
 app.get('/api/health', (req, res) => {
-    res.json({ status: 'OK', server: 'Movies API - Cuevana Scraper', timestamp: new Date().toISOString() });
+    res.json({ status: 'OK', server: 'Movies API - TMDB', timestamp: new Date().toISOString() });
 });
 
 // ====================================================================
-// SEARCH ENDPOINT
+// TMDB ENDPOINTS
 // ====================================================================
-app.get('/api/search', async (req, res) => {
-    const { query } = req.query;
 
-    if (!query) {
-        return res.status(400).json({ success: false, message: 'Query parameter required' });
+// Popular Movies
+app.get('/api/movies/popular', async (req, res) => {
+    const page = req.query.page || 1;
+    const cacheKey = `movies:popular:${page}`;
+    const cached = getCache(cacheKey);
+    if (cached) return res.json(cached);
+
+    try {
+        const response = await axios.get(`${TMDB_BASE_URL}/movie/popular`, {
+            params: { api_key: TMDB_API_KEY, page, language: 'es-ES' }
+        });
+
+        const result = { success: true, data: response.data };
+        setCache(cacheKey, result);
+        res.json(result);
+    } catch (error) {
+        console.error('Error fetching popular movies:', error.message);
+        res.status(500).json({ success: false, message: error.message });
     }
+});
+
+// Airing Series
+app.get('/api/series/airing', async (req, res) => {
+    const page = req.query.page || 1;
+    const cacheKey = `series:airing:${page}`;
+    const cached = getCache(cacheKey);
+    if (cached) return res.json(cached);
+
+    try {
+        const response = await axios.get(`${TMDB_BASE_URL}/tv/on_the_air`, {
+            params: { api_key: TMDB_API_KEY, page, language: 'es-ES' }
+        });
+
+        const result = { success: true, data: response.data };
+        setCache(cacheKey, result);
+        res.json(result);
+    } catch (error) {
+        console.error('Error fetching airing series:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Search Multi
+app.get('/api/movies/search', async (req, res) => {
+    const query = req.query.query;
+    if (!query) return res.status(400).json({ success: false, message: 'Query required' });
 
     const cacheKey = `search:${query}`;
     const cached = getCache(cacheKey);
     if (cached) return res.json(cached);
 
     try {
-        console.log(`🔍 Searching Cuevana for: ${query}`);
-
-        const searchUrl = `${CUEVANA_DOMAIN}/search?q=${encodeURIComponent(query)}`;
-        const response = await axios.get(searchUrl, {
-            headers: { 'User-Agent': USER_AGENT },
-            timeout: 10000
+        const response = await axios.get(`${TMDB_BASE_URL}/search/multi`, {
+            params: { api_key: TMDB_API_KEY, query, language: 'es-ES' }
         });
 
-        const $ = cheerio.load(response.data);
-        const results = [];
-
-        // More robust selectors - try multiple possible structures
-        const possibleContainers = ['.item', '.movie-item', '.MovieList article', 'article', '.MovieListItem', '.TPost'];
-
-        let items = $();
-        for (const container of possibleContainers) {
-            items = $(container);
-            if (items.length > 0) {
-                console.log(`Found ${items.length} items with selector: ${container}`);
-                break;
-            }
-        }
-
-        items.each((i, elem) => {
-            const $elem = $(elem);
-
-            const title = $elem.find('.title, h2, h3, .Title').first().text().trim();
-            const link = $elem.find('a').first().attr('href');
-            const poster = $elem.find('img').first().attr('data-src') ||
-                $elem.find('img').first().attr('src') ||
-                $elem.find('img').first().attr('data-lazy-src');
-            const year = $elem.find('.year, .Year, .date, span.Date').first().text().trim();
-
-            if (title && link) {
-                const id = link.split('/').filter(x => x).pop();
-                const type = link.includes('/serie') || link.includes('/tv') ? 'tv' : 'movie';
-
-                results.push({
-                    id: id,
-                    title: title,
-                    poster: poster || 'https://via.placeholder.com/300x450?text=No+Image',
-                    year: year,
-                    type: type,
-                    link: link.startsWith('http') ? link : `${CUEVANA_DOMAIN}${link}`
-                });
-            }
-        });
-
-        console.log(`✓ Found ${results.length} results for: ${query}`);
-
-        const result = { success: true, data: results };
+        const result = { success: true, data: response.data.results };
         setCache(cacheKey, result);
         res.json(result);
-
     } catch (error) {
-        console.error('❌ Search error:', error.message);
-        res.status(500).json({
-            success: false,
-            message: 'Error al buscar en Cuevana',
-            error: error.message
-        });
+        console.error('Error searching:', error.message);
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 
-// ====================================================================
-// GET MOVIE/SERIES DETAILS AND STREAMING LINKS
-// ====================================================================
-app.get('/api/watch/:type/:id', async (req, res) => {
-    const { type, id } = req.params;
-    const { season, episode } = req.query;
+// Movie Servers (Streaming Links)
+app.get('/api/movies/servers/:tmdbId', async (req, res) => {
+    const { tmdbId } = req.params;
+    const cacheKey = `movie-servers:${tmdbId}`;
+    const cached = getCache(cacheKey);
+    if (cached) return res.json(cached);
 
-    const cacheKey = `watch:${type}:${id}:${season || ''}:${episode || ''}`;
+    const servers = [
+        { name: 'VidSrc.to', url: `https://vidsrc.to/embed/movie/${tmdbId}` },
+        { name: 'VidSrc PRO', url: `https://vidsrc.pro/embed/movie/${tmdbId}` },
+        { name: 'VidSrc.in', url: `https://vidsrc.in/embed/movie?tmdb=${tmdbId}` },
+        { name: 'SmashyStream', url: `https://player.smashy.stream/movie/${tmdbId}` }
+    ];
+
+    const result = { success: true, servers };
+    setCache(cacheKey, result);
+    res.json(result);
+});
+
+// Series Servers (Streaming Links)
+app.get('/api/series/servers/:tmdbId/:season/:episode', async (req, res) => {
+    const { tmdbId, season, episode } = req.params;
+    const cacheKey = `series-servers:${tmdbId}:${season}:${episode}`;
+    const cached = getCache(cacheKey);
+    if (cached) return res.json(cached);
+
+    const servers = [
+        { name: 'VidSrc.to', url: `https://vidsrc.to/embed/tv/${tmdbId}/${season}/${episode}` },
+        { name: 'VidSrc PRO', url: `https://vidsrc.pro/embed/tv/${tmdbId}/${season}/${episode}` },
+        { name: 'VidSrc.in', url: `https://vidsrc.in/embed/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}` },
+        { name: 'SmashyStream', url: `https://player.smashy.stream/tv/${tmdbId}?s=${season}&e=${episode}` }
+    ];
+
+    const result = { success: true, servers };
+    setCache(cacheKey, result);
+    res.json(result);
+});
+
+// Series Details (for seasons/episodes)
+app.get('/api/series/details/:tmdbId', async (req, res) => {
+    const { tmdbId } = req.params;
+    const cacheKey = `series-details:${tmdbId}`;
     const cached = getCache(cacheKey);
     if (cached) return res.json(cached);
 
     try {
-        console.log(`🎬 Getting streaming links for ${type}: ${id}`);
-
-        let cuevanaUrl = `${CUEVANA_DOMAIN}/${type === 'series' ? 'serie' : 'pelicula'}/${id}`;
-
-        const response = await axios.get(cuevanaUrl, {
-            headers: { 'User-Agent': USER_AGENT },
-            timeout: 10000
+        const response = await axios.get(`${TMDB_BASE_URL}/tv/${tmdbId}`, {
+            params: { api_key: TMDB_API_KEY, language: 'es-ES' }
         });
 
-        const $ = cheerio.load(response.data);
-
-        const title = $('h1').first().text().trim();
-        const synopsis = $('.description').text().trim() || $('.sinopsis').text().trim();
-        const poster = $('img.poster').attr('src') || $('.poster img').attr('src');
-
-        const streamingOptions = [];
-
-        $('.language-options a, .audio-options a, .server-option').each((i, elem) => {
-            const $elem = $(elem);
-            const language = $elem.text().trim().toLowerCase();
-            const link = $elem.attr('href') || $elem.attr('data-url');
-
-            if (link) {
-                let audioType = 'subtitulado';
-                if (language.includes('latino')) audioType = 'latino';
-                if (language.includes('castellano') || language.includes('español')) audioType = 'castellano';
-
-                streamingOptions.push({
-                    audio: audioType,
-                    url: link.startsWith('http') ? link : `${CUEVANA_DOMAIN}${link}`
-                });
-            }
-        });
-
-        if (streamingOptions.length === 0) {
-            $('iframe').each((i, elem) => {
-                const src = $(elem).attr('src');
-                if (src && src.includes('embed')) {
-                    streamingOptions.push({
-                        audio: 'disponible',
-                        url: src
-                    });
-                }
-            });
-        }
-
-        console.log(`✓ Found ${streamingOptions.length} streaming options`);
-
-        const result = {
-            success: true,
-            data: {
-                title: title,
-                synopsis: synopsis,
-                poster: poster,
-                streamingOptions: streamingOptions
-            }
-        };
-
+        const result = { success: true, data: response.data };
         setCache(cacheKey, result);
         res.json(result);
-
     } catch (error) {
-        console.error('❌ Watch error:', error.message);
-        res.status(500).json({
-            success: false,
-            message: 'Error al obtener enlaces de streaming',
-            error: error.message
-        });
-    }
-});
-
-// ====================================================================
-// POPULAR MOVIES (Scrape from Cuevana homepage)
-// ====================================================================
-app.get('/api/popular', async (req, res) => {
-    const cacheKey = 'popular:movies';
-    const cached = getCache(cacheKey);
-    if (cached) return res.json(cached);
-
-    try {
-        console.log('🔥 Fetching popular movies from Cuevana');
-
-        const response = await axios.get(CUEVANA_DOMAIN, {
-            headers: { 'User-Agent': USER_AGENT },
-            timeout: 10000
-        });
-
-        const $ = cheerio.load(response.data);
-        const popular = [];
-
-        const possibleContainers = ['.item', '.movie-item', '.MovieList article', 'article', '.TPost', '.MovieListItem'];
-
-        let items = $();
-        for (const container of possibleContainers) {
-            items = $(container);
-            if (items.length > 0) {
-                console.log(`Popular: Found ${items.length} items with selector: ${container}`);
-                break;
-            }
-        }
-
-        items.slice(0, 20).each((i, elem) => {
-            const $elem = $(elem);
-
-            const title = $elem.find('.title, h2, h3, .Title').first().text().trim();
-            const link = $elem.find('a').first().attr('href');
-            const poster = $elem.find('img').first().attr('data-src') ||
-                $elem.find('img').first().attr('src') ||
-                $elem.find('img').first().attr('data-lazy-src');
-            const rating = $elem.find('.rating, .vote, .Rating').first().text().trim();
-
-            if (title && link) {
-                const id = link.split('/').filter(x => x).pop();
-                const type = link.includes('/serie') || link.includes('/tv') ? 'tv' : 'movie';
-
-                popular.push({
-                    id: id,
-                    title: title,
-                    poster: poster || 'https://via.placeholder.com/300x450?text=No+Image',
-                    rating: rating || 'N/A',
-                    type: type
-                });
-            }
-        });
-
-        console.log(`✓ Found ${popular.length} popular items`);
-
-        const result = { success: true, data: popular };
-        setCache(cacheKey, result);
-        res.json(result);
-
-    } catch (error) {
-        console.error('❌ Popular error:', error.message);
-        res.status(500).json({
-            success: false,
-            message: 'Error al obtener contenido popular',
-            error: error.message
-        });
+        console.error('Error fetching series details:', error.message);
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 
@@ -282,11 +175,14 @@ app.get('/api/popular', async (req, res) => {
 // ====================================================================
 app.listen(PORT, () => {
     console.log(`\n✓ Servidor Movies API corriendo en http://localhost:${PORT}`);
-    console.log(`🎬 Dominio Cuevana: ${CUEVANA_DOMAIN}`);
+    console.log(`🎬 Usando TMDB API`);
     console.log(`📝 Endpoints disponibles:`);
     console.log(`   GET /api/health`);
-    console.log(`   GET /api/search?query=terminator`);
-    console.log(`   GET /api/popular`);
-    console.log(`   GET /api/watch/:type/:id`);
+    console.log(`   GET /api/movies/popular?page=1`);
+    console.log(`   GET /api/series/airing?page=1`);
+    console.log(`   GET /api/movies/search?query=avatar`);
+    console.log(`   GET /api/movies/servers/:tmdbId`);
+    console.log(`   GET /api/series/servers/:tmdbId/:season/:episode`);
+    console.log(`   GET /api/series/details/:tmdbId`);
     console.log(``);
 });
