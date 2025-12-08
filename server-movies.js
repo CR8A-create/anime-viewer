@@ -34,8 +34,8 @@ function setCache(key, data) {
     console.log(`✓ Cache SET: ${key}`);
 }
 
-// Cuevana domain - puede cambiar
-const CUEVANA_DOMAIN = process.env.CUEVANA_DOMAIN || 'https://cuevana3.rip';
+// Cuevana domain - puede cambiar (actualizado diciembre 2024)
+const CUEVANA_DOMAIN = process.env.CUEVANA_DOMAIN || 'https://cuevana.pro';
 
 // User agent para evitar bloqueos
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
@@ -65,51 +65,19 @@ app.get('/api/search', async (req, res) => {
         const searchUrl = `${CUEVANA_DOMAIN}/search?q=${encodeURIComponent(query)}`;
         const response = await axios.get(searchUrl, {
             headers: { 'User-Agent': USER_AGENT },
-            timeout: 10000
-        });
-
-        const $ = cheerio.load(response.data);
-        const results = [];
-
-        // Selectors pueden variar - ajustar según estructura actual de Cuevana
-        $('.item').each((i, elem) => {
-            const $elem = $(elem);
-
-            const title = $elem.find('.title').text().trim() || $elem.find('h2').text().trim();
-            const link = $elem.find('a').attr('href');
-            const poster = $elem.find('img').attr('data-src') || $elem.find('img').attr('src');
-            const year = $elem.find('.year').text().trim();
-
-            if (title && link) {
-                const id = link.split('/').pop(); // Extract ID from URL
-                const type = link.includes('/serie/') ? 'tv' : 'movie';
-
-                results.push({
-                    id: id,
-                    title: title,
-                    poster: poster || 'https://via.placeholder.com/300x450?text=No+Image',
-                    year: year,
-                    type: type,
-                    link: link
-                });
-            }
-        });
-
-        console.log(`✓ Found ${results.length} results for: ${query}`);
-
-        const result = { success: true, data: results };
-        setCache(cacheKey, result);
+            const result = { success: true, data: results };
+            setCache(cacheKey, result);
         res.json(result);
 
-    } catch (error) {
-        console.error('❌ Search error:', error.message);
-        res.status(500).json({
-            success: false,
-            message: 'Error al buscar en Cuevana',
-            error: error.message
-        });
-    }
-});
+        } catch (error) {
+            console.error('❌ Search error:', error.message);
+            res.status(500).json({
+                success: false,
+                message: 'Error al buscar en Cuevana',
+                error: error.message
+            });
+        }
+    });
 
 // ====================================================================
 // GET MOVIE/SERIES DETAILS AND STREAMING LINKS
@@ -212,48 +180,24 @@ app.get('/api/popular', async (req, res) => {
 
         const response = await axios.get(CUEVANA_DOMAIN, {
             headers: { 'User-Agent': USER_AGENT },
-            timeout: 10000
-        });
-
-        const $ = cheerio.load(response.data);
-        const popular = [];
-
-        $('.item, .movie-item, .grid-item').slice(0, 20).each((i, elem) => {
-            const $elem = $(elem);
-
-            const title = $elem.find('.title').text().trim() || $elem.find('h2, h3').text().trim();
-            const link = $elem.find('a').attr('href');
-            const poster = $elem.find('img').attr('data-src') || $elem.find('img').attr('src');
-            const rating = $elem.find('.rating').text().trim();
-
-            if (title && link) {
-                const id = link.split('/').pop();
-                const type = link.includes('/serie/') ? 'tv' : 'movie';
-
-                popular.push({
-                    id: id,
-                    title: title,
-                    poster: poster || 'https://via.placeholder.com/300x450?text=No+Image',
-                    rating: rating || 'N/A',
-                    type: type
-                });
-            }
-        });
-
-        console.log(`✓ Found ${popular.length} popular items`);
-
-        const result = { success: true, data: popular };
-        setCache(cacheKey, result);
-        res.json(result);
-
-    } catch (error) {
-        console.error('❌ Popular error:', error.message);
-        res.status(500).json({
-            success: false,
-            message: 'Error al obtener contenido popular',
-            error: error.message
         });
     }
+        });
+
+console.log(`✓ Found ${popular.length} popular items`);
+
+const result = { success: true, data: popular };
+setCache(cacheKey, result);
+res.json(result);
+
+    } catch (error) {
+    console.error('❌ Popular error:', error.message);
+    res.status(500).json({
+        success: false,
+        message: 'Error al obtener contenido popular',
+        error: error.message
+    });
+}
 });
 
 // ====================================================================
