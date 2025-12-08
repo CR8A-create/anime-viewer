@@ -3,10 +3,10 @@ console.log("Movies Logic Loaded - TMDB Backend");
 
 const TMDB_IMAGE = 'https://image.tmdb.org/t/p';
 
-// Movies backend URL
+// Movies backend URL - usar server.js puerto 3000
 const MOVIES_BACKEND_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-    ? 'http://localhost:4000/api'
-    : 'https://movies-api-cuevana.onrender.com/api';
+    ? 'http://localhost:3000/api'
+    : 'https://mi-anime-api.onrender.com/api'; // Mismo backend que anime
 
 // Fetch popular movies from TMDB
 async function fetchPopularMovies(page = 1) {
