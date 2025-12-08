@@ -33,8 +33,9 @@ function setCache(key, data) {
     console.log(`✓ Cache SET: ${key}`);
 }
 
-// TMDB API Key (obtener de environment o usar key pública limitada)
-const TMDB_API_KEY = process.env.TMDB_API_KEY || '8c0c3a4dd69d381c7b8c';
+// TMDB API Key - Obtener gratis en https://www.themoviedb.org/settings/api
+// Esta es una key de ejemplo - el usuario debe obtener la suya
+const TMDB_API_KEY = process.env.TMDB_API_KEY || 'e9e9d8b6e3e9d8b6e3e9d8b6e3e9d8b6';
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 
 // Health check
