@@ -73,6 +73,25 @@
                 <!-- Episodes injected via JS -->
             </div>
         </div>
+
+        <!-- Comments Section -->
+        <div class="comments-section" id="commentsSection">
+            <h3><i class="fas fa-comments"></i> Comentarios <span class="comment-count" id="commentCount">0</span></h3>
+            <div class="comment-input-area">
+                <div style="flex: 1;">
+                    <textarea id="commentInput" placeholder="Escribe tu comentario anónimo... (máx. 500 caracteres)"
+                        maxlength="500"></textarea>
+                    <div class="comment-char-count"><span id="charCount">0</span>/500</div>
+                    <div class="comment-error" id="commentError" style="display: none;"></div>
+                </div>
+                <button class="comment-send-btn" id="commentSendBtn" onclick="postAnimeComment()">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+            <div id="commentsList">
+                <div class="comment-empty">Sé el primero en comentar 💬</div>
+            </div>
+        </div>
     </main>
 
     <footer style="background:#1f1f1f; color:#999; padding:25px; text-align:center; font-size:0.85em;">
@@ -83,6 +102,87 @@
     </footer>
 
     <script src="../assets/js/anime-logic.js"></script>
+    <script>
+        // Anonymous Comments for Anime
+        const COMMENTS_API = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+            ? 'http://localhost:3000/api' : 'https://mi-anime-api.onrender.com/api';
+
+        function getAnimeContentId() {
+            const params = new URLSearchParams(window.location.search);
+            const anime = params.get('anime') || 'unknown';
+            return 'anime_' + anime.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 50);
+        }
+
+        const animeContentId = getAnimeContentId();
+
+        document.getElementById('commentInput').addEventListener('input', function () {
+            document.getElementById('charCount').textContent = this.value.length;
+        });
+
+        document.getElementById('commentInput').addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); postAnimeComment(); }
+        });
+
+        async function loadAnimeComments() {
+            try {
+                const response = await fetch(`${COMMENTS_API}/comments/${animeContentId}`);
+                const data = await response.json();
+                const list = document.getElementById('commentsList');
+                const countEl = document.getElementById('commentCount');
+                if (data.success && data.comments.length > 0) {
+                    countEl.textContent = data.comments.length;
+                    list.innerHTML = '';
+                    data.comments.reverse().forEach(c => {
+                        list.innerHTML += `<div class="comment-item"><div class="comment-header"><span class="comment-author">${escHtml(c.name)}</span><span class="comment-time">${tAgo(c.timestamp)}</span></div><p class="comment-text">${escHtml(c.text)}</p></div>`;
+                    });
+                } else {
+                    countEl.textContent = '0';
+                    list.innerHTML = '<div class="comment-empty">Sé el primero en comentar 💬</div>';
+                }
+            } catch (err) { console.error('Error loading comments:', err); }
+        }
+
+        async function postAnimeComment() {
+            const input = document.getElementById('commentInput');
+            const btn = document.getElementById('commentSendBtn');
+            const errorEl = document.getElementById('commentError');
+            const text = input.value.trim();
+            if (!text) return;
+            btn.disabled = true;
+            errorEl.style.display = 'none';
+            try {
+                const response = await fetch(`${COMMENTS_API}/comments/${animeContentId}`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    input.value = '';
+                    document.getElementById('charCount').textContent = '0';
+                    loadAnimeComments();
+                } else {
+                    errorEl.textContent = data.message || 'Error';
+                    errorEl.style.display = 'block';
+                }
+            } catch (err) {
+                errorEl.textContent = 'Error de conexión';
+                errorEl.style.display = 'block';
+            }
+            setTimeout(() => { btn.disabled = false; }, 2000);
+        }
+
+        function escHtml(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+        function tAgo(ts) {
+            const d = Date.now() - new Date(ts).getTime(), m = Math.floor(d / 60000);
+            if (m < 1) return 'ahora'; if (m < 60) return `hace ${m}m`;
+            const h = Math.floor(m / 60); if (h < 24) return `hace ${h}h`;
+            const dd = Math.floor(h / 24); if (dd < 30) return `hace ${dd}d`;
+            return new Date(ts).toLocaleDateString('es-ES');
+        }
+
+        // Load comments on page load
+        loadAnimeComments();
+    </script>
 </body>
 
 </html>

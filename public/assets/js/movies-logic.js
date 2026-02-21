@@ -1,18 +1,42 @@
-// Movies Logic - TMDB Backend
-console.log("Movies Logic Loaded - TMDB Backend");
+// Movies Logic - TMDB Backend (TURBO V2)
+console.log("Movies Logic Loaded - TURBO V2");
 
 const TMDB_IMAGE = 'https://image.tmdb.org/t/p';
 
-// Movies backend URL - usar server.js puerto 3000
 const MOVIES_BACKEND_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
     ? 'http://localhost:3000/api'
-    : 'https://mi-anime-api.onrender.com/api'; // Mismo backend que anime
+    : 'https://mi-anime-api.onrender.com/api';
+
+// === SESSION CACHE ===
+const MV_CACHE_TTL = 5 * 60 * 1000;
+
+function mvCacheGet(key) {
+    try {
+        const raw = sessionStorage.getItem('mvc_' + key);
+        if (!raw) return null;
+        const { data, ts } = JSON.parse(raw);
+        if (Date.now() - ts > MV_CACHE_TTL) { sessionStorage.removeItem('mvc_' + key); return null; }
+        return data;
+    } catch { return null; }
+}
+
+function mvCacheSet(key, data) {
+    try { sessionStorage.setItem('mvc_' + key, JSON.stringify({ data, ts: Date.now() })); } catch { }
+}
+
+async function mvCachedFetch(key, url) {
+    const cached = mvCacheGet(key);
+    if (cached) { console.log(`⚡ Movies cache HIT: ${key}`); return cached; }
+    const res = await fetch(url);
+    const data = await res.json();
+    mvCacheSet(key, data);
+    return data;
+}
 
 // Fetch popular movies from TMDB
 async function fetchPopularMovies(page = 1) {
     try {
-        const response = await fetch(`${MOVIES_BACKEND_URL}/movies/popular?page=${page}`);
-        const data = await response.json();
+        const data = await mvCachedFetch(`pop_${page}`, `${MOVIES_BACKEND_URL}/movies/popular?page=${page}`);
         return data.success ? data.data.results : [];
     } catch (error) {
         console.error('Error fetching popular movies:', error);
@@ -23,8 +47,7 @@ async function fetchPopularMovies(page = 1) {
 // Fetch airing series from TMDB
 async function fetchAiringSeries(page = 1) {
     try {
-        const response = await fetch(`${MOVIES_BACKEND_URL}/series/airing?page=${page}`);
-        const data = await response.json();
+        const data = await mvCachedFetch(`air_${page}`, `${MOVIES_BACKEND_URL}/series/airing?page=${page}`);
         return data.success ? data.data.results : [];
     } catch (error) {
         console.error('Error fetching airing series:', error);
@@ -35,8 +58,7 @@ async function fetchAiringSeries(page = 1) {
 // Search content in TMDB
 async function searchContent(query) {
     try {
-        const response = await fetch(`${MOVIES_BACKEND_URL}/movies/search?query=${encodeURIComponent(query)}`);
-        const data = await response.json();
+        const data = await mvCachedFetch(`search_${query}`, `${MOVIES_BACKEND_URL}/movies/search?query=${encodeURIComponent(query)}`);
         return data.success ? data.data : [];
     } catch (error) {
         console.error('Error searching:', error);
@@ -103,15 +125,9 @@ let carouselMovies = [];
 
 async function fetchMoviesForCarousel() {
     try {
-        const [page1, page2] = await Promise.all([
-            fetch(`${MOVIES_BACKEND_URL}/movies/popular?page=1`).then(r => r.json()),
-            fetch(`${MOVIES_BACKEND_URL}/movies/popular?page=2`).then(r => r.json())
-        ]);
-
-        let allMovies = [];
-        if (page1.success) allMovies = allMovies.concat(page1.data.results);
-        if (page2.success) allMovies = allMovies.concat(page2.data.results);
-
+        // Solo 1 página en vez de 2 — reduce a la mitad el tiempo de carga
+        const data = await mvCachedFetch('carousel', `${MOVIES_BACKEND_URL}/movies/popular?page=1`);
+        let allMovies = data.success ? data.data.results : [];
         const shuffled = allMovies.sort(() => 0.5 - Math.random());
         return shuffled.slice(0, 5);
     } catch (error) {
@@ -208,32 +224,93 @@ function prevSlide() {
     goToSlide(prev);
 }
 
-// Initialize on DOMContentLoaded
+// ===================================================================
+// PAGINATION STATE
+// ===================================================================
+
+let moviesPage = 1;
+let seriesPage = 1;
+
+// Append items to grid (without clearing existing ones)
+function appendToGrid(items, container) {
+    if (!container) return;
+    items.forEach(item => {
+        if (!item.poster_path) return;
+        const card = document.createElement('div');
+        card.className = 'anime-card';
+        card.onclick = () => openMoviePlayer(item);
+        const title = item.title || item.name;
+        const poster = `${TMDB_IMAGE}/w500${item.poster_path}`;
+        const type = item.media_type === 'tv' || item.first_air_date ? 'Serie' : 'Película';
+        const rating = item.vote_average ? item.vote_average.toFixed(1) : 'N/A';
+        card.innerHTML = `
+            <img src="${poster}" alt="${title}" loading="lazy">
+            <div class="card-info">
+                <span class="type">${type} ⭐${rating}</span>
+                <h4>${title}</h4>
+            </div>
+        `;
+        container.appendChild(card);
+    });
+}
+
+// Load More Movies
+async function loadMoreMovies() {
+    const btn = document.getElementById('loadMoreMovies');
+    btn.innerHTML = '<span class="spinner"></span> Cargando...';
+    btn.disabled = true;
+    moviesPage++;
+    const movies = await fetchPopularMovies(moviesPage);
+    const grid = document.getElementById('moviesGrid');
+    if (movies.length > 0) {
+        appendToGrid(movies, grid);
+    }
+    btn.innerHTML = '<i class="fas fa-plus"></i> Ver Más Películas';
+    btn.disabled = false;
+    if (movies.length < 10) btn.style.display = 'none'; // No more results
+}
+
+// Load More Series
+async function loadMoreSeries() {
+    const btn = document.getElementById('loadMoreSeries');
+    btn.innerHTML = '<span class="spinner"></span> Cargando...';
+    btn.disabled = true;
+    seriesPage++;
+    const series = await fetchAiringSeries(seriesPage);
+    const grid = document.getElementById('seriesGrid');
+    if (series.length > 0) {
+        appendToGrid(series, grid);
+    }
+    btn.innerHTML = '<i class="fas fa-plus"></i> Ver Más Series';
+    btn.disabled = false;
+    if (series.length < 10) btn.style.display = 'none';
+}
+
+// Initialize on DOMContentLoaded — ⚡ PARALELO
 document.addEventListener('DOMContentLoaded', async () => {
     const moviesGrid = document.getElementById('moviesGrid');
     const seriesGrid = document.getElementById('seriesGrid');
     const searchInput = document.getElementById('searchInput');
     const searchBtn = document.getElementById('searchBtn');
 
-    // Load carousel
-    const moviesForCarousel = await fetchMoviesForCarousel();
-    if (moviesForCarousel.length > 0) {
-        setupCarousel(moviesForCarousel);
-    }
+    // ⚡ Todo en paralelo: carousel + movies + series
+    const [moviesForCarousel, movies, series] = await Promise.all([
+        fetchMoviesForCarousel(),
+        moviesGrid ? fetchPopularMovies() : Promise.resolve([]),
+        seriesGrid ? fetchAiringSeries() : Promise.resolve([])
+    ]);
 
-    // Load popular movies
-    if (moviesGrid) {
-        moviesGrid.innerHTML = '<div class="loading">Cargando películas...</div>';
-        const movies = await fetchPopularMovies();
-        renderMovieGrid(movies, moviesGrid);
-    }
+    if (moviesForCarousel.length > 0) setupCarousel(moviesForCarousel);
+    if (moviesGrid) renderMovieGrid(movies, moviesGrid);
+    if (seriesGrid) renderMovieGrid(series, seriesGrid);
 
-    // Load airing series
-    if (seriesGrid) {
-        seriesGrid.innerHTML = '<div class="loading">Cargando series...</div>';
-        const series = await fetchAiringSeries();
-        renderMovieGrid(series, seriesGrid);
-    }
+    // Show "Ver Más" buttons
+    const loadMoreMoviesBtn = document.getElementById('loadMoreMovies');
+    const loadMoreSeriesBtn = document.getElementById('loadMoreSeries');
+    if (loadMoreMoviesBtn && movies.length > 0) loadMoreMoviesBtn.style.display = 'flex';
+    if (loadMoreSeriesBtn && series.length > 0) loadMoreSeriesBtn.style.display = 'flex';
+
+    console.log('✓ Movies: todas las secciones cargadas en paralelo');
 
     // Search functionality
     async function handleSearch() {
@@ -242,6 +319,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (moviesGrid) moviesGrid.innerHTML = '<div class="loading">Buscando...</div>';
         if (seriesGrid && seriesGrid.parentElement) seriesGrid.parentElement.style.display = 'none';
+        if (loadMoreMoviesBtn) loadMoreMoviesBtn.style.display = 'none';
+        if (loadMoreSeriesBtn) loadMoreSeriesBtn.style.display = 'none';
 
         const results = await searchContent(query);
 

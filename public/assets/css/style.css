@@ -830,3 +830,398 @@ footer {
     cursor: not-allowed;
     box-shadow: none;
 }
+
+/* ===================================================================
+   SKELETON LOADERS — Shimmer animation for perceived speed
+   =================================================================== */
+
+@keyframes shimmer {
+    0% {
+        background-position: -300px 0;
+    }
+
+    100% {
+        background-position: 300px 0;
+    }
+}
+
+.skeleton-card {
+    background: var(--bg-card);
+    border-radius: 10px;
+    overflow: hidden;
+    aspect-ratio: 2/3;
+}
+
+.skeleton-card .skeleton-img {
+    width: 100%;
+    height: 75%;
+    background: linear-gradient(90deg, #1f1f1f 25%, #2a2a2a 50%, #1f1f1f 75%);
+    background-size: 600px 100%;
+    animation: shimmer 1.5s infinite;
+}
+
+.skeleton-card .skeleton-text {
+    padding: 12px;
+}
+
+.skeleton-card .skeleton-line {
+    height: 12px;
+    background: linear-gradient(90deg, #1f1f1f 25%, #2a2a2a 50%, #1f1f1f 75%);
+    background-size: 600px 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 4px;
+    margin-bottom: 8px;
+}
+
+.skeleton-card .skeleton-line.short {
+    width: 60%;
+}
+
+/* ===================================================================
+   VER MÁS BUTTON
+   =================================================================== */
+
+.load-more-container {
+    display: flex;
+    justify-content: center;
+    margin: 30px 0 10px 0;
+}
+
+.load-more-btn {
+    background: linear-gradient(135deg, var(--primary-color), #ff4444);
+    color: white;
+    border: none;
+    padding: 14px 40px;
+    border-radius: 30px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-family: 'Outfit', sans-serif;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 4px 15px rgba(229, 9, 20, 0.3);
+}
+
+.load-more-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(229, 9, 20, 0.5);
+}
+
+.load-more-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.load-more-btn .spinner {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ===================================================================
+   PLAYER LOADING OVERLAY
+   =================================================================== */
+
+.player-loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    gap: 15px;
+    backdrop-filter: blur(5px);
+    transition: opacity 0.4s ease;
+}
+
+.player-loading-overlay .loader-ring {
+    width: 50px;
+    height: 50px;
+    border: 3px solid rgba(255, 255, 255, 0.1);
+    border-top-color: var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+.player-loading-overlay p {
+    color: #ccc;
+    font-size: 0.95rem;
+}
+
+/* ===================================================================
+   PLAYER INFO PANEL — Movie/Episode Details
+   =================================================================== */
+
+.player-info-panel {
+    display: flex;
+    gap: 25px;
+    margin-top: 20px;
+    padding: 25px;
+    background: linear-gradient(135deg, rgba(31, 31, 31, 0.9), rgba(20, 20, 20, 0.95));
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(10px);
+}
+
+.player-info-panel .info-poster {
+    flex-shrink: 0;
+    width: 160px;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
+}
+
+.player-info-panel .info-poster img {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.player-info-panel .info-details {
+    flex: 1;
+}
+
+.player-info-panel .info-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, #fff, #ccc);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.player-info-panel .info-meta {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.player-info-panel .info-badge {
+    background: rgba(255, 255, 255, 0.08);
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    color: #ccc;
+}
+
+.player-info-panel .info-badge.rating {
+    background: rgba(255, 193, 7, 0.15);
+    color: #ffc107;
+}
+
+.player-info-panel .info-description {
+    color: #aaa;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    margin-top: 10px;
+}
+
+.player-info-panel .info-genres {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+}
+
+.player-info-panel .info-genres span {
+    background: rgba(var(--primary-rgb, 229, 9, 20), 0.15);
+    color: var(--primary-color);
+    padding: 4px 12px;
+    border-radius: 15px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+/* ===================================================================
+   COMMENTS SECTION — Anonymous forum style
+   =================================================================== */
+
+.comments-section {
+    margin-top: 30px;
+    padding: 25px;
+    background: rgba(31, 31, 31, 0.8);
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.comments-section h3 {
+    margin-bottom: 20px;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.comments-section h3 .comment-count {
+    font-size: 0.85rem;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-weight: 400;
+    color: #999;
+}
+
+.comment-input-area {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 25px;
+}
+
+.comment-input-area textarea {
+    width: 100%;
+    box-sizing: border-box;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 15px 18px;
+    color: white;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.95rem;
+    resize: vertical;
+    min-height: 120px;
+    max-height: 300px;
+    transition: border-color 0.3s;
+}
+
+.comment-input-area textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+.comment-input-area textarea::placeholder {
+    color: #666;
+}
+
+.comment-send-btn {
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 12px 30px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 600;
+    font-family: 'Outfit', sans-serif;
+    transition: all 0.3s;
+    align-self: flex-end;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.comment-send-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 15px rgba(229, 9, 20, 0.4);
+}
+
+.comment-send-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.comment-char-count {
+    font-size: 0.75rem;
+    color: #666;
+    text-align: right;
+    margin-top: 4px;
+}
+
+.comment-item {
+    padding: 15px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    transition: background 0.2s;
+}
+
+.comment-item:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.comment-item:last-child {
+    border-bottom: none;
+}
+
+.comment-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.comment-author {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--primary-color);
+}
+
+.comment-time {
+    font-size: 0.8rem;
+    color: #666;
+}
+
+.comment-text {
+    color: #ccc;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    word-break: break-word;
+}
+
+.comment-empty {
+    text-align: center;
+    padding: 30px;
+    color: #666;
+    font-style: italic;
+}
+
+.comment-error {
+    color: #ff4444;
+    font-size: 0.85rem;
+    margin-top: 5px;
+}
+
+/* Responsive adjustments for player info panel */
+@media (max-width: 768px) {
+    .player-info-panel {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+
+    .player-info-panel .info-poster {
+        width: 120px;
+    }
+
+    .player-info-panel .info-meta {
+        justify-content: center;
+    }
+
+    .player-info-panel .info-genres {
+        justify-content: center;
+    }
+
+    .comment-send-btn {
+        align-self: stretch;
+        justify-content: center;
+    }
+}

@@ -34,25 +34,100 @@
 
         <div class="video-container">
             <h3 id="activeTitle" style="text-align: center; margin-bottom: 15px; color: var(--neon-purple);"></h3>
-            <div class="video-wrapper">
+            <div class="video-wrapper" style="position: relative;">
                 <iframe id="videoPlayer" src="" frameborder="0" allowfullscreen allow="autoplay"></iframe>
                 <div id="placeholderMessage" class="placeholder-message">
                     <i class="fas fa-film"></i>
                     <h3>Selecciona un Servidor</h3>
                     <p>Cargando...</p>
                 </div>
+                <!-- Loading overlay when changing servers -->
+                <div id="loadingOverlay" class="player-loading-overlay" style="display: none;">
+                    <div class="loader-ring"></div>
+                    <p>Cambiando servidor...</p>
+                </div>
             </div>
+        </div>
+
+        <!-- TOGGLE DE IDIOMA -->
+        <div id="langToggle" style="
+            display: flex; gap: 10px; margin-bottom: 15px; padding: 12px 15px;
+            background: rgba(147, 51, 234, 0.08); border: 1px solid rgba(147, 51, 234, 0.3);
+            border-radius: 10px; align-items: center; flex-wrap: wrap;
+        ">
+            <span style="font-weight: 600; color: #c084fc; margin-right: 8px;">
+                <i class="fas fa-language"></i> Idioma:
+            </span>
+            <button id="langBtnOriginal" class="server-btn active" onclick="switchLang('en')"
+                style="background: var(--primary-color); border: none; padding: 8px 18px; border-radius: 6px; cursor: pointer; color: white; font-weight: 600; transition: all 0.3s;">
+                🔊 Original (Sub Español)
+            </button>
+            <button id="langBtnEs" class="server-btn" onclick="switchLang('es')"
+                style="background: #333; border: none; padding: 8px 18px; border-radius: 6px; cursor: pointer; color: white; font-weight: 600; transition: all 0.3s;">
+                🔊 Español (Doblado)
+            </button>
+            <span id="langNote" style="font-size: 0.8rem; color: #888; margin-left: auto;">
+                La disponibilidad del español depende de cada película
+            </span>
         </div>
 
         <div class="server-controls">
             <span><i class="fas fa-server"></i> Servidores:</span>
-            <div class="server-list">
+            <div class="server-list" id="serverList">
                 <button class="server-btn">Cargando...</button>
             </div>
         </div>
 
-        <div class="anime-info-detailed" id="movieInfo">
-            <div class="loading">Cargando información...</div>
+        <!-- For TV shows: Season/Episode selector -->
+        <div id="episodeSelector"
+            style="display: none; margin-top: 15px; padding: 15px; background: rgba(31,31,31,0.8); border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+            <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                <div>
+                    <label
+                        style="font-size: 0.85rem; color: #999; margin-bottom: 4px; display: block;">Temporada</label>
+                    <select id="seasonSelect" onchange="onSeasonChange()"
+                        style="background: #1a1a1a; color: white; border: 1px solid #444; border-radius: 8px; padding: 8px 15px; font-family: 'Outfit', sans-serif; font-size: 0.95rem; cursor: pointer;"></select>
+                </div>
+                <div>
+                    <label style="font-size: 0.85rem; color: #999; margin-bottom: 4px; display: block;">Episodio</label>
+                    <select id="episodeSelect" onchange="onEpisodeChange()"
+                        style="background: #1a1a1a; color: white; border: 1px solid #444; border-radius: 8px; padding: 8px 15px; font-family: 'Outfit', sans-serif; font-size: 0.95rem; cursor: pointer;"></select>
+                </div>
+                <div id="episodeInfo" style="flex: 1; min-width: 200px;">
+                    <p id="episodeName" style="font-weight: 600; font-size: 1rem; margin-bottom: 2px;"></p>
+                    <p id="episodeOverview" style="font-size: 0.85rem; color: #999; line-height: 1.4;"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Info Panel -->
+        <div id="infoPanel" class="player-info-panel" style="display: none;">
+            <div class="info-poster" id="infoPoster"></div>
+            <div class="info-details">
+                <h2 class="info-title" id="infoTitle"></h2>
+                <div class="info-meta" id="infoMeta"></div>
+                <p class="info-description" id="infoDescription"></p>
+                <div class="info-genres" id="infoGenres"></div>
+            </div>
+        </div>
+
+        <!-- Comments Section -->
+        <div class="comments-section" id="commentsSection">
+            <h3><i class="fas fa-comments"></i> Comentarios <span class="comment-count" id="commentCount">0</span></h3>
+            <div class="comment-input-area">
+                <div style="flex: 1;">
+                    <textarea id="commentInput" placeholder="Escribe tu comentario anónimo... (máx. 500 caracteres)"
+                        maxlength="500"></textarea>
+                    <div class="comment-char-count"><span id="charCount">0</span>/500</div>
+                    <div class="comment-error" id="commentError" style="display: none;"></div>
+                </div>
+                <button class="comment-send-btn" id="commentSendBtn" onclick="postComment()">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+            <div id="commentsList">
+                <div class="comment-empty">Sé el primero en comentar 💬</div>
+            </div>
         </div>
     </main>
 
@@ -66,75 +141,367 @@
     <script>
         const MOVIES_BACKEND_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
             ? 'http://localhost:3000/api'
-            : 'https://mi-anime-api.onrender.com/api'; // Mismo backend que anime
+            : 'https://mi-anime-api.onrender.com/api';
 
         const params = new URLSearchParams(window.location.search);
         const tmdbId = params.get('id');
         const title = params.get('title');
         const type = params.get('type'); // 'movie' or 'tv'
+        let currentLang = 'en';
+        let currentSeason = 1;
+        let currentEpisode = 1;
+        let seriesData = null;
+        let contentId = `${type}_${tmdbId}`; // For comments
 
-        // Validate parameters
+        // ================================================================
+        // INIT
+        // ================================================================
+
         if (!tmdbId || !title) {
-            console.error('Missing required parameters');
             document.getElementById('activeTitle').textContent = 'Error: Contenido no encontrado';
-            document.getElementById('placeholderMessage').querySelector('p').textContent = 'Por favor, selecciona una película o serie desde la página principal.';
-            document.querySelector('.server-list').innerHTML = '<p style="color: #ff4444; padding: 10px;">No se pudo cargar el contenido. <a href="index.html" style="color: var(--neon-purple);">Volver al inicio</a></p>';
+            document.getElementById('placeholderMessage').querySelector('p').textContent = 'Selecciona una película o serie desde la página principal.';
+            document.getElementById('serverList').innerHTML = '<p style="color: #ff4444; padding: 10px;">No se pudo cargar. <a href="index.html" style="color: var(--neon-purple);">Volver</a></p>';
+            document.getElementById('langToggle').style.display = 'none';
         } else {
             document.getElementById('activeTitle').textContent = title;
-            loadServers();
+            document.title = `${title} - AniNova Movies`;
+            loadContentInfo();
+            loadServers('en');
+            loadComments();
         }
 
-        async function loadServers() {
-            const serverList = document.querySelector('.server-list');
+        // ================================================================
+        // LANGUAGE TOGGLE
+        // ================================================================
+
+        function switchLang(lang) {
+            if (lang === currentLang) return;
+            currentLang = lang;
+            const btnOrig = document.getElementById('langBtnOriginal');
+            const btnEs = document.getElementById('langBtnEs');
+            if (lang === 'es') {
+                btnEs.style.background = 'var(--primary-color)';
+                btnEs.classList.add('active');
+                btnOrig.style.background = '#333';
+                btnOrig.classList.remove('active');
+            } else {
+                btnOrig.style.background = 'var(--primary-color)';
+                btnOrig.classList.add('active');
+                btnEs.style.background = '#333';
+                btnEs.classList.remove('active');
+            }
+            loadServers(lang);
+        }
+
+        // ================================================================
+        // LOAD SERVERS
+        // ================================================================
+
+        async function loadServers(lang = 'en') {
+            const serverList = document.getElementById('serverList');
             serverList.innerHTML = '<div class="loading">Obteniendo servidores...</div>';
 
             try {
-                const endpoint = type === 'tv'
-                    ? `/series/servers/${tmdbId}/1/1`
-                    : `/movies/servers/${tmdbId}`;
+                let endpoint;
+                if (type === 'tv') {
+                    endpoint = `/series/servers/${tmdbId}/${currentSeason}/${currentEpisode}/${lang}`;
+                } else {
+                    endpoint = `/movies/servers/${tmdbId}/${lang}`;
+                }
 
                 const response = await fetch(`${MOVIES_BACKEND_URL}${endpoint}`);
                 const data = await response.json();
 
                 if (data.success && data.servers.length > 0) {
                     serverList.innerHTML = '';
-
-                    // Add info note
-                    const note = document.createElement('p');
-                    note.style.cssText = 'font-size: 0.85rem; color: #ffa500; margin: 0 0 15px 0; padding: 10px; background: rgba(255, 165, 0, 0.1); border-radius: 5px;';
-                    note.innerHTML = '<i class="fas fa-info-circle"></i> <strong>Idioma:</strong> Los servidores tienen audio en inglés con subtítulos en español disponibles. Prueba varios si el primero no funciona.';
-                    serverList.appendChild(note);
-
                     data.servers.forEach((server, idx) => {
                         const btn = document.createElement('button');
                         btn.className = 'server-btn';
                         btn.textContent = server.name;
                         btn.onclick = () => changeServer(server.name, server.url);
                         if (idx === 0) {
-                            setTimeout(() => btn.click(), 800);
+                            setTimeout(() => btn.click(), 300);
                         }
                         serverList.appendChild(btn);
                     });
                 } else {
-                    serverList.innerHTML = '<p>No hay servidores disponibles</p>';
+                    serverList.innerHTML = '<p>No hay servidores disponibles para este idioma.</p>';
                 }
             } catch (error) {
                 console.error('Error loading servers:', error);
-                serverList.innerHTML = '<p style="color: #ff4444;">Error al cargar servidores. <a href="index.html" style="color: var(--neon-purple);">Volver al inicio</a></p>';
+                serverList.innerHTML = '<p style="color: #ff4444;">Error al cargar servidores. <a href="index.html" style="color: var(--neon-purple);">Volver</a></p>';
             }
         }
+
+        // ================================================================
+        // CHANGE SERVER (with loading overlay)
+        // ================================================================
 
         function changeServer(name, url) {
             const player = document.getElementById('videoPlayer');
             const placeholder = document.getElementById('placeholderMessage');
+            const overlay = document.getElementById('loadingOverlay');
 
+            // Show loading overlay
+            overlay.style.display = 'flex';
             placeholder.style.display = 'none';
             player.style.display = 'block';
             player.src = url;
 
-            document.querySelectorAll('.server-btn').forEach(btn => {
+            // Hide loading after iframe loads
+            player.onload = () => {
+                setTimeout(() => { overlay.style.display = 'none'; }, 500);
+            };
+            // Fallback: hide after 5s in case `onload` doesn't fire
+            setTimeout(() => { overlay.style.display = 'none'; }, 5000);
+
+            // Highlight active server
+            document.querySelectorAll('#serverList .server-btn').forEach(btn => {
                 btn.classList.toggle('active', btn.textContent === name);
             });
+        }
+
+        // ================================================================
+        // LOAD CONTENT INFO (Movie/Series detail from TMDB)
+        // ================================================================
+
+        async function loadContentInfo() {
+            const panel = document.getElementById('infoPanel');
+            try {
+                let endpoint;
+                if (type === 'tv') {
+                    endpoint = `/series/details/${tmdbId}`;
+                } else {
+                    endpoint = `/movies/details/${tmdbId}`;
+                }
+
+                const response = await fetch(`${MOVIES_BACKEND_URL}${endpoint}`);
+                const data = await response.json();
+
+                if (data.success && data.data) {
+                    const d = data.data;
+                    panel.style.display = 'flex';
+
+                    // Poster
+                    const posterEl = document.getElementById('infoPoster');
+                    if (d.poster_path) {
+                        posterEl.innerHTML = `<img src="https://image.tmdb.org/t/p/w500${d.poster_path}" alt="${d.title || d.name}" loading="lazy">`;
+                    }
+
+                    // Title
+                    document.getElementById('infoTitle').textContent = d.title || d.name;
+
+                    // Meta badges
+                    const meta = document.getElementById('infoMeta');
+                    meta.innerHTML = '';
+                    if (d.vote_average) meta.innerHTML += `<span class="info-badge rating">⭐ ${d.vote_average.toFixed(1)}</span>`;
+                    if (d.release_date) meta.innerHTML += `<span class="info-badge">${d.release_date.substring(0, 4)}</span>`;
+                    if (d.first_air_date) meta.innerHTML += `<span class="info-badge">${d.first_air_date.substring(0, 4)}</span>`;
+                    if (d.runtime) meta.innerHTML += `<span class="info-badge">${d.runtime} min</span>`;
+                    if (d.number_of_seasons) meta.innerHTML += `<span class="info-badge">${d.number_of_seasons} temporada${d.number_of_seasons > 1 ? 's' : ''}</span>`;
+                    if (d.status) {
+                        const statusMap = { 'Returning Series': 'En emisión', 'Ended': 'Finalizada', 'Released': 'Estrenada' };
+                        meta.innerHTML += `<span class="info-badge">${statusMap[d.status] || d.status}</span>`;
+                    }
+
+                    // Description
+                    document.getElementById('infoDescription').textContent = d.overview || 'Sin descripción disponible.';
+
+                    // Genres
+                    const genres = document.getElementById('infoGenres');
+                    genres.innerHTML = '';
+                    if (d.genres) {
+                        d.genres.forEach(g => {
+                            genres.innerHTML += `<span>${g.name}</span>`;
+                        });
+                    }
+
+                    // If TV show: setup season/episode selector
+                    if (type === 'tv' && d.number_of_seasons) {
+                        seriesData = d;
+                        setupEpisodeSelector(d);
+                    }
+                }
+            } catch (err) {
+                console.error('Error loading content info:', err);
+            }
+        }
+
+        // ================================================================
+        // TV SHOW: Season/Episode Selector
+        // ================================================================
+
+        function setupEpisodeSelector(d) {
+            const container = document.getElementById('episodeSelector');
+            const seasonSelect = document.getElementById('seasonSelect');
+            container.style.display = 'block';
+
+            // Fill seasons
+            seasonSelect.innerHTML = '';
+            for (let i = 1; i <= d.number_of_seasons; i++) {
+                const opt = document.createElement('option');
+                opt.value = i;
+                opt.textContent = `Temporada ${i}`;
+                seasonSelect.appendChild(opt);
+            }
+            seasonSelect.value = currentSeason;
+
+            // Fill initial episodes
+            fillEpisodes(d.seasons);
+        }
+
+        function fillEpisodes(seasons) {
+            const episodeSelect = document.getElementById('episodeSelect');
+            episodeSelect.innerHTML = '';
+
+            const seasonInfo = seasons ? seasons.find(s => s.season_number === currentSeason) : null;
+            const epCount = seasonInfo ? seasonInfo.episode_count : 12;
+
+            for (let i = 1; i <= epCount; i++) {
+                const opt = document.createElement('option');
+                opt.value = i;
+                opt.textContent = `Episodio ${i}`;
+                episodeSelect.appendChild(opt);
+            }
+            episodeSelect.value = currentEpisode;
+
+            // Load episode info
+            loadEpisodeInfo();
+        }
+
+        function onSeasonChange() {
+            currentSeason = parseInt(document.getElementById('seasonSelect').value);
+            currentEpisode = 1;
+            if (seriesData) fillEpisodes(seriesData.seasons);
+            loadServers(currentLang);
+            contentId = `${type}_${tmdbId}_s${currentSeason}e${currentEpisode}`;
+            loadComments();
+        }
+
+        function onEpisodeChange() {
+            currentEpisode = parseInt(document.getElementById('episodeSelect').value);
+            loadServers(currentLang);
+            loadEpisodeInfo();
+            contentId = `${type}_${tmdbId}_s${currentSeason}e${currentEpisode}`;
+            loadComments();
+        }
+
+        async function loadEpisodeInfo() {
+            if (type !== 'tv') return;
+            try {
+                const response = await fetch(`${MOVIES_BACKEND_URL}/series/episode/${tmdbId}/${currentSeason}/${currentEpisode}`);
+                const data = await response.json();
+                if (data.success && data.data) {
+                    const ep = data.data;
+                    document.getElementById('episodeName').textContent = ep.name || `Episodio ${currentEpisode}`;
+                    document.getElementById('episodeOverview').textContent = ep.overview || '';
+                    // Update title
+                    document.getElementById('activeTitle').textContent = `${title} — T${currentSeason}:E${currentEpisode} "${ep.name || ''}"`;
+                }
+            } catch (err) {
+                console.error('Error loading episode info:', err);
+            }
+        }
+
+        // ================================================================
+        // ANONYMOUS COMMENTS
+        // ================================================================
+
+        document.getElementById('commentInput').addEventListener('input', function () {
+            document.getElementById('charCount').textContent = this.value.length;
+        });
+
+        async function loadComments() {
+            try {
+                const response = await fetch(`${MOVIES_BACKEND_URL}/comments/${contentId}`);
+                const data = await response.json();
+                const list = document.getElementById('commentsList');
+                const countEl = document.getElementById('commentCount');
+
+                if (data.success && data.comments.length > 0) {
+                    countEl.textContent = data.comments.length;
+                    list.innerHTML = '';
+                    // Show newest first
+                    data.comments.reverse().forEach(c => {
+                        list.innerHTML += `
+                            <div class="comment-item">
+                                <div class="comment-header">
+                                    <span class="comment-author">${escapeHtml(c.name)}</span>
+                                    <span class="comment-time">${timeAgo(c.timestamp)}</span>
+                                </div>
+                                <p class="comment-text">${escapeHtml(c.text)}</p>
+                            </div>
+                        `;
+                    });
+                } else {
+                    countEl.textContent = '0';
+                    list.innerHTML = '<div class="comment-empty">Sé el primero en comentar 💬</div>';
+                }
+            } catch (err) {
+                console.error('Error loading comments:', err);
+            }
+        }
+
+        async function postComment() {
+            const input = document.getElementById('commentInput');
+            const btn = document.getElementById('commentSendBtn');
+            const errorEl = document.getElementById('commentError');
+            const text = input.value.trim();
+
+            if (!text) return;
+
+            btn.disabled = true;
+            errorEl.style.display = 'none';
+
+            try {
+                const response = await fetch(`${MOVIES_BACKEND_URL}/comments/${contentId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    input.value = '';
+                    document.getElementById('charCount').textContent = '0';
+                    loadComments();
+                } else {
+                    errorEl.textContent = data.message || 'Error al enviar comentario';
+                    errorEl.style.display = 'block';
+                }
+            } catch (err) {
+                errorEl.textContent = 'Error de conexión';
+                errorEl.style.display = 'block';
+            }
+
+            setTimeout(() => { btn.disabled = false; }, 2000);
+        }
+
+        // Allow Enter to submit (Shift+Enter for newline)
+        document.getElementById('commentInput').addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                postComment();
+            }
+        });
+
+        // Helpers
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function timeAgo(timestamp) {
+            const diff = Date.now() - new Date(timestamp).getTime();
+            const mins = Math.floor(diff / 60000);
+            if (mins < 1) return 'ahora';
+            if (mins < 60) return `hace ${mins}m`;
+            const hours = Math.floor(mins / 60);
+            if (hours < 24) return `hace ${hours}h`;
+            const days = Math.floor(hours / 24);
+            if (days < 30) return `hace ${days}d`;
+            return new Date(timestamp).toLocaleDateString('es-ES');
         }
     </script>
 </body>

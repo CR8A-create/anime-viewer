@@ -1,10 +1,44 @@
-console.log("Anime Logic Loaded - Version: FINAL_CLEAN");
+console.log("Anime Logic Loaded - Version: TURBO_V2");
 const API_URL = 'https://api.jikan.moe/v4';
-// URL REAL de tu servidor en Render
 const PROD_URL = 'https://mi-anime-api.onrender.com/api';
 const BACKEND_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
     ? 'http://localhost:3000/api'
     : PROD_URL;
+
+// === SESSION CACHE (evita re-fetches al navegar entre páginas) ===
+const SESSION_CACHE_TTL = 5 * 60 * 1000; // 5 minutos
+
+function getSessionCache(key) {
+    try {
+        const raw = sessionStorage.getItem('anc_' + key);
+        if (!raw) return null;
+        const { data, ts } = JSON.parse(raw);
+        if (Date.now() - ts > SESSION_CACHE_TTL) {
+            sessionStorage.removeItem('anc_' + key);
+            return null;
+        }
+        return data;
+    } catch { return null; }
+}
+
+function setSessionCache(key, data) {
+    try {
+        sessionStorage.setItem('anc_' + key, JSON.stringify({ data, ts: Date.now() }));
+    } catch { /* storage full, ignore */ }
+}
+
+// Wrapper: fetch con caché de sesión
+async function cachedFetch(cacheKey, url) {
+    const cached = getSessionCache(cacheKey);
+    if (cached) {
+        console.log(`⚡ Cache HIT (session): ${cacheKey}`);
+        return cached;
+    }
+    const response = await fetch(url);
+    const data = await response.json();
+    setSessionCache(cacheKey, data);
+    return data;
+}
 
 // DOM Elements
 const mainContent = document.getElementById('mainContent');
@@ -62,6 +96,7 @@ function showToast(msg, type = 'info') {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    // No bloquear: check de conexión en paralelo con carga de datos
     checkBackendConnection();
 
     // Check which page we're on - CRITICAL FIX: detect by pathname, not just DOM
@@ -97,13 +132,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function setupHome() {
     if (window.location.pathname.includes('directorio') || window.location.pathname.includes('emision')) {
-        // Handled by their specific functions now
         return;
     }
 
-    fetchSeasonAnimeForCarousel();
-    fetchRecentEpisodes();
-    fetchTopAnime();
+    // ⚡ CARGA PARALELA: todas las secciones a la vez en lugar de una por una
+    Promise.all([
+        fetchSeasonAnimeForCarousel(),
+        fetchRecentEpisodes(),
+        fetchTopAnime()
+    ]).then(() => {
+        console.log('✓ Todas las secciones de inicio cargadas');
+        // Show "Ver Más" button after initial load
+        const loadMoreBtn = document.getElementById('loadMorePopular');
+        if (loadMoreBtn) {
+            loadMoreBtn.style.display = 'flex';
+            loadMoreBtn.onclick = loadMorePopularAnime;
+        }
+    });
 }
 
 function setupDirectoryPage() {
@@ -329,8 +374,7 @@ function playRelativeEpisode(offset) {
 
 async function fetchSeasonAnimeForCarousel() {
     try {
-        const response = await fetch(`${BACKEND_URL}/airing`);
-        const data = await response.json();
+        const data = await cachedFetch('airing', `${BACKEND_URL}/airing`);
         if (data.success && data.data.length > 0) {
             setupCarousel(data.data);
         }
@@ -341,8 +385,7 @@ async function fetchSeasonAnimeForCarousel() {
 
 async function fetchRecentEpisodes() {
     try {
-        const response = await fetch(`${BACKEND_URL}/recent`);
-        const data = await response.json();
+        const data = await cachedFetch('recent', `${BACKEND_URL}/recent`);
 
         if (data.success && data.data.length > 0) {
             const recentEpisodes = data.data.map(item => ({
@@ -357,18 +400,50 @@ async function fetchRecentEpisodes() {
     }
 }
 
-async function fetchTopAnime() {
+let popularAnimePage = 1;
+
+async function fetchTopAnime(page = 1, append = false) {
     try {
-        const response = await fetch(`${API_URL}/top/anime?filter=bypopularity&limit=12`);
-        const data = await response.json();
+        const data = await cachedFetch(`top_anime_p${page}`, `${API_URL}/top/anime?filter=bypopularity&limit=12&page=${page}`);
 
         if (data.data && data.data.length > 0) {
-            renderAnimeGrid(data.data, popularGrid);
+            if (append && popularGrid) {
+                // Append to existing grid
+                data.data.forEach(anime => {
+                    const card = document.createElement('div');
+                    card.className = 'anime-card';
+                    card.onclick = () => {
+                        window.location.href = `ver.html?anime=${encodeURIComponent(anime.title)}`;
+                    };
+                    const thumb = anime.images?.jpg?.image_url || anime.image_url;
+                    const name = anime.title || 'Sin título';
+                    card.innerHTML = `
+                        <img src="${thumb}" alt="${name}" loading="lazy">
+                        <div class="card-info">
+                            <span class="type">${anime.type || 'Anime'}</span>
+                            <h4>${name}</h4>
+                        </div>`;
+                    popularGrid.appendChild(card);
+                });
+            } else {
+                renderAnimeGrid(data.data, popularGrid);
+            }
         }
     } catch (error) {
         console.error('Error fetching top anime:', error);
         if (popularGrid) popularGrid.innerHTML = '<p class="error">Error al cargar populares.</p>';
     }
+}
+
+async function loadMorePopularAnime() {
+    const btn = document.getElementById('loadMorePopular');
+    if (!btn) return;
+    btn.innerHTML = '<span class="spinner"></span> Cargando...';
+    btn.disabled = true;
+    popularAnimePage++;
+    await fetchTopAnime(popularAnimePage, true);
+    btn.innerHTML = '<i class="fas fa-plus"></i> Ver Más Animes';
+    btn.disabled = false;
 }
 
 async function handleSearch() {
@@ -526,7 +601,7 @@ function renderAnimeGrid(animeList, container) {
         const type = anime.type || 'TV';
 
         card.innerHTML = `
-            <img src="${imageUrl}" alt="${title}">
+            <img src="${imageUrl}" alt="${title}" loading="lazy">
             <div class="card-info">
                 <span class="type">${type.replace('Episode', 'Episodio')}</span>
                 <h4>${title}</h4>

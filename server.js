@@ -1,16 +1,28 @@
 const express = require('express');
 const cors = require('cors');
+const compression = require('compression');
 const axios = require('axios');
 const cheerio = require('cheerio');
+const fs = require('fs');
+const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Gzip compression — reduce payload ~70%
+app.use(compression());
+app.use(express.json());
 
 app.use(cors({
     origin: '*',
     methods: ['GET', 'POST', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
-app.use(express.static('public')); // Serve static files from public folder
+
+// Static files con cache de 1 hora en el navegador
+app.use(express.static('public', {
+    maxAge: '1h',
+    etag: true
+}));
 
 app.get('/', (req, res) => {
     res.send('¡El servidor API de Anime está funcionando! Abre index.html para ver la página.');
@@ -23,7 +35,7 @@ app.get('/api/health', (req, res) => {
 
 // Simple in-memory cache
 const cache = new Map();
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const CACHE_DURATION = 15 * 60 * 1000; // 15 minutes (anime data barely changes)
 
 function getCache(key) {
     const cached = cache.get(key);
@@ -349,38 +361,98 @@ app.get('/api/movies/search', async (req, res) => {
     }
 });
 
-app.get('/api/movies/servers/:tmdbId', async (req, res) => {
+// Helper: get IMDB ID from TMDB (needed for some embed providers)
+async function getImdbId(tmdbId, type = 'movie') {
+    const cacheKey = `imdb:${type}:${tmdbId}`;
+    const cached = getCache(cacheKey);
+    if (cached) return cached;
+
+    try {
+        const endpoint = type === 'tv' ? 'tv' : 'movie';
+        const response = await axios.get(`${TMDB_BASE}/${endpoint}/${tmdbId}/external_ids`, {
+            params: { api_key: TMDB_API_KEY }
+        });
+        const imdbId = response.data.imdb_id || null;
+        if (imdbId) setCache(cacheKey, imdbId);
+        return imdbId;
+    } catch (error) {
+        console.error('Error fetching IMDB ID:', error.message);
+        return null;
+    }
+}
+
+// Movie servers — supports lang param: 'en' (default) or 'es' (dubbed)
+app.get('/api/movies/servers/:tmdbId/:lang?', async (req, res) => {
     const { tmdbId } = req.params;
-    const cacheKey = `movie-servers:${tmdbId}`;
+    const lang = req.params.lang || 'en';
+    const cacheKey = `movie-servers:${tmdbId}:${lang}`;
     const cached = getCache(cacheKey);
     if (cached) return res.json(cached);
 
-    const servers = [
-        { name: 'VidSrc.to', url: `https://vidsrc.to/embed/movie/${tmdbId}` },
-        { name: 'VidSrc PRO', url: `https://vidsrc.pro/embed/movie/${tmdbId}` },
-        { name: 'VidSrc.in', url: `https://vidsrc.in/embed/movie?tmdb=${tmdbId}` },
-        { name: 'SmashyStream', url: `https://player.smashy.stream/movie/${tmdbId}` }
-    ];
+    let servers;
 
-    const result = { success: true, servers };
+    if (lang === 'es') {
+        // Servidores con audio en español — proveedores con mejor soporte multi-idioma
+        const imdbId = await getImdbId(tmdbId, 'movie');
+        servers = [
+            { name: 'Embed.su ES', url: `https://embed.su/embed/movie/${tmdbId}?lang=Spanish` },
+            { name: 'MultiEmbed ES', url: `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&lang=es` },
+            { name: 'AutoEmbed ES', url: `https://player.autoembed.cc/embed/movie/${tmdbId}?lang=spa` },
+            { name: 'MoviesAPI ES', url: `https://moviesapi.club/movie/${tmdbId}?lang=es` },
+        ];
+        if (imdbId) {
+            servers.push({ name: 'WarezCDN ES', url: `https://embed.warezcdn.com/filme/${imdbId}` });
+        }
+    } else {
+        // Servidores originales (inglés + sub español)
+        servers = [
+            { name: 'VidSrc.to', url: `https://vidsrc.to/embed/movie/${tmdbId}` },
+            { name: 'Embed.su', url: `https://embed.su/embed/movie/${tmdbId}` },
+            { name: 'VidSrc PRO', url: `https://vidsrc.pro/embed/movie/${tmdbId}` },
+            { name: 'VidSrc.in', url: `https://vidsrc.in/embed/movie?tmdb=${tmdbId}` },
+            { name: 'SmashyStream', url: `https://player.smashy.stream/movie/${tmdbId}` },
+            { name: 'AutoEmbed', url: `https://player.autoembed.cc/embed/movie/${tmdbId}` }
+        ];
+    }
+
+    const result = { success: true, servers, lang };
     setCache(cacheKey, result);
     res.json(result);
 });
 
-app.get('/api/series/servers/:tmdbId/:season/:episode', async (req, res) => {
+// Series servers — supports lang param
+app.get('/api/series/servers/:tmdbId/:season/:episode/:lang?', async (req, res) => {
     const { tmdbId, season, episode } = req.params;
-    const cacheKey = `series-servers:${tmdbId}:${season}:${episode}`;
+    const lang = req.params.lang || 'en';
+    const cacheKey = `series-servers:${tmdbId}:${season}:${episode}:${lang}`;
     const cached = getCache(cacheKey);
     if (cached) return res.json(cached);
 
-    const servers = [
-        { name: 'VidSrc.to', url: `https://vidsrc.to/embed/tv/${tmdbId}/${season}/${episode}` },
-        { name: 'VidSrc PRO', url: `https://vidsrc.pro/embed/tv/${tmdbId}/${season}/${episode}` },
-        { name: 'VidSrc.in', url: `https://vidsrc.in/embed/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}` },
-        { name: 'SmashyStream', url: `https://player.smashy.stream/tv/${tmdbId}?s=${season}&e=${episode}` }
-    ];
+    let servers;
 
-    const result = { success: true, servers };
+    if (lang === 'es') {
+        const imdbId = await getImdbId(tmdbId, 'tv');
+        servers = [
+            { name: 'Embed.su ES', url: `https://embed.su/embed/tv/${tmdbId}/${season}/${episode}?lang=Spanish` },
+            { name: 'MultiEmbed ES', url: `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&s=${season}&e=${episode}&lang=es` },
+            { name: 'AutoEmbed ES', url: `https://player.autoembed.cc/embed/tv/${tmdbId}/${season}/${episode}?lang=spa` },
+            { name: 'MoviesAPI ES', url: `https://moviesapi.club/tv/${tmdbId}/${season}/${episode}?lang=es` },
+        ];
+        if (imdbId) {
+            servers.push({ name: 'WarezCDN ES', url: `https://embed.warezcdn.com/serie/${imdbId}/${season}/${episode}` });
+        }
+    } else {
+        servers = [
+            { name: 'VidSrc.to', url: `https://vidsrc.to/embed/tv/${tmdbId}/${season}/${episode}` },
+            { name: 'Embed.su', url: `https://embed.su/embed/tv/${tmdbId}/${season}/${episode}` },
+            { name: 'VidSrc PRO', url: `https://vidsrc.pro/embed/tv/${tmdbId}/${season}/${episode}` },
+            { name: 'VidSrc.in', url: `https://vidsrc.in/embed/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}` },
+            { name: 'SmashyStream', url: `https://player.smashy.stream/tv/${tmdbId}?s=${season}&e=${episode}` },
+            { name: 'AutoEmbed', url: `https://player.autoembed.cc/embed/tv/${tmdbId}/${season}/${episode}` }
+        ];
+    }
+
+    const result = { success: true, servers, lang };
     setCache(cacheKey, result);
     res.json(result);
 });
@@ -403,8 +475,165 @@ app.get('/api/series/details/:tmdbId', async (req, res) => {
     }
 });
 
+// Movie details (for player info panel)
+app.get('/api/movies/details/:tmdbId', async (req, res) => {
+    const { tmdbId } = req.params;
+    const cacheKey = `movie-details:${tmdbId}`;
+    const cached = getCache(cacheKey);
+    if (cached) return res.json(cached);
+
+    try {
+        const response = await axios.get(`${TMDB_BASE}/movie/${tmdbId}`, {
+            params: { api_key: TMDB_API_KEY, language: 'es-ES' }
+        });
+        const result = { success: true, data: response.data };
+        setCache(cacheKey, result);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Episode details (for Netflix-style overlay)
+app.get('/api/series/episode/:tmdbId/:season/:episode', async (req, res) => {
+    const { tmdbId, season, episode } = req.params;
+    const cacheKey = `episode-detail:${tmdbId}:${season}:${episode}`;
+    const cached = getCache(cacheKey);
+    if (cached) return res.json(cached);
+
+    try {
+        const response = await axios.get(`${TMDB_BASE}/tv/${tmdbId}/season/${season}/episode/${episode}`, {
+            params: { api_key: TMDB_API_KEY, language: 'es-ES' }
+        });
+        const result = { success: true, data: response.data };
+        setCache(cacheKey, result);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// ===================================================================
+// ANONYMOUS COMMENTS SYSTEM
+// ===================================================================
+
+const COMMENTS_DIR = path.join(__dirname, 'data');
+const COMMENTS_FILE = path.join(COMMENTS_DIR, 'comments.json');
+const commentRateLimit = new Map(); // IP -> timestamp
+
+// Ensure data directory exists
+if (!fs.existsSync(COMMENTS_DIR)) {
+    fs.mkdirSync(COMMENTS_DIR, { recursive: true });
+}
+if (!fs.existsSync(COMMENTS_FILE)) {
+    fs.writeFileSync(COMMENTS_FILE, '{}');
+}
+
+function loadComments() {
+    try {
+        return JSON.parse(fs.readFileSync(COMMENTS_FILE, 'utf8'));
+    } catch { return {}; }
+}
+
+function saveComments(data) {
+    fs.writeFileSync(COMMENTS_FILE, JSON.stringify(data, null, 2));
+}
+
+// Random anonymous names
+const ANON_NAMES = [
+    'Naruto Fan', 'Otaku Oscuro', 'Senpai Anónimo', 'Weeb Silencioso',
+    'Ninja del Sofá', 'Samurai sin Nombre', 'Pirata del Streaming',
+    'Cazador de Series', 'Shinigami Anónimo', 'Héroe Random',
+    'Dragón Nocturno', 'Fantasma del Chat', 'Leyenda Oculta',
+    'Titán Anónimo', 'Espíritu Libre', 'Lobo Solitario',
+    'Viajero del Tiempo', 'Caballero Oscuro', 'Phoenix Anónimo'
+];
+
+function getAnonName() {
+    return ANON_NAMES[Math.floor(Math.random() * ANON_NAMES.length)];
+}
+
+// GET comments for a content
+app.get('/api/comments/:contentId', (req, res) => {
+    const { contentId } = req.params;
+    const allComments = loadComments();
+    const comments = allComments[contentId] || [];
+    res.json({ success: true, comments });
+});
+
+// POST a new comment
+app.post('/api/comments/:contentId', (req, res) => {
+    const { contentId } = req.params;
+    const { text } = req.body;
+    const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+
+    // Validations
+    if (!text || text.trim().length === 0) {
+        return res.status(400).json({ success: false, message: 'Comentario vacío' });
+    }
+    if (text.length > 500) {
+        return res.status(400).json({ success: false, message: 'Máximo 500 caracteres' });
+    }
+
+    // Rate limit: 1 comment per 30 seconds per IP
+    const lastComment = commentRateLimit.get(ip);
+    if (lastComment && Date.now() - lastComment < 30000) {
+        const wait = Math.ceil((30000 - (Date.now() - lastComment)) / 1000);
+        return res.status(429).json({ success: false, message: `Espera ${wait}s para comentar de nuevo` });
+    }
+
+    const allComments = loadComments();
+    if (!allComments[contentId]) allComments[contentId] = [];
+
+    const comment = {
+        id: Date.now().toString(36) + Math.random().toString(36).substr(2, 4),
+        name: getAnonName(),
+        text: text.trim().substring(0, 500),
+        timestamp: new Date().toISOString()
+    };
+
+    allComments[contentId].push(comment);
+
+    // Keep only last 100 comments per content
+    if (allComments[contentId].length > 100) {
+        allComments[contentId] = allComments[contentId].slice(-100);
+    }
+
+    saveComments(allComments);
+    commentRateLimit.set(ip, Date.now());
+
+    res.json({ success: true, comment });
+});
+
+// ===================================================================
+// SERVER START + KEEP-ALIVE + PRE-FETCH
+// ===================================================================
+
 app.listen(PORT, () => {
     console.log(`\n✓ Servidor API corriendo en http://localhost:${PORT}`);
     console.log(`📺 Anime: http://localhost:${PORT}/anime/index.html`);
     console.log(`🎬 Movies: http://localhost:${PORT}/movies/index.html\n`);
+
+    // Pre-fetch: llenar caché al arrancar para que el primer usuario tenga datos
+    console.log('🔄 Pre-cargando datos en caché...');
+    Promise.allSettled([
+        axios.get(`http://localhost:${PORT}/api/airing`),
+        axios.get(`http://localhost:${PORT}/api/recent`),
+        axios.get(`http://localhost:${PORT}/api/movies/popular?page=1`),
+        axios.get(`http://localhost:${PORT}/api/series/airing?page=1`)
+    ]).then(results => {
+        const ok = results.filter(r => r.status === 'fulfilled').length;
+        console.log(`✓ Pre-fetch completado: ${ok}/4 endpoints cargados en caché`);
+    });
+
+    // Self-ping keep-alive: evita que Render.com apague el servidor
+    if (process.env.RENDER) {
+        const RENDER_URL = process.env.RENDER_EXTERNAL_URL || `https://mi-anime-api.onrender.com`;
+        setInterval(() => {
+            axios.get(`${RENDER_URL}/api/health`)
+                .then(() => console.log('♻ Keep-alive ping OK'))
+                .catch(() => console.log('♻ Keep-alive ping sent'));
+        }, 14 * 60 * 1000); // Cada 14 minutos
+        console.log('♻ Keep-alive activado (ping cada 14 min)');
+    }
 });
