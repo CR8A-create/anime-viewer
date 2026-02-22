@@ -1225,3 +1225,229 @@ footer {
         justify-content: center;
     }
 }
+
+/* ===================================================================
+   CAST TO TV — Floating button + instruction modal
+   =================================================================== */
+
+.cast-fab {
+    position: fixed;
+    bottom: 25px;
+    right: 25px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: white;
+    border: none;
+    font-size: 1.3rem;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(99, 102, 241, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    transition: all 0.3s ease;
+    animation: castPulse 3s ease-in-out infinite;
+}
+
+.cast-fab:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 30px rgba(99, 102, 241, 0.7);
+    animation: none;
+}
+
+@keyframes castPulse {
+
+    0%,
+    100% {
+        box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
+    }
+
+    50% {
+        box-shadow: 0 4px 30px rgba(99, 102, 241, 0.7);
+    }
+}
+
+.cast-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(8px);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.cast-modal-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.cast-modal {
+    background: linear-gradient(145deg, #1e1e2e, #1a1a28);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
+    padding: 35px;
+    max-width: 520px;
+    width: 90%;
+    max-height: 85vh;
+    overflow-y: auto;
+    transform: translateY(20px);
+    transition: transform 0.3s ease;
+}
+
+.cast-modal-overlay.active .cast-modal {
+    transform: translateY(0);
+}
+
+.cast-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+}
+
+.cast-modal-header h3 {
+    font-size: 1.3rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.cast-modal-header h3 i {
+    color: #8b5cf6;
+}
+
+.cast-modal-close {
+    background: rgba(255, 255, 255, 0.08);
+    border: none;
+    color: #999;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.1rem;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cast-modal-close:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+}
+
+.cast-step {
+    display: flex;
+    gap: 15px;
+    padding: 15px;
+    margin-bottom: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    transition: background 0.2s;
+}
+
+.cast-step:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.cast-step-num {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.9rem;
+}
+
+.cast-step-content h4 {
+    font-size: 0.95rem;
+    margin-bottom: 4px;
+}
+
+.cast-step-content p {
+    font-size: 0.85rem;
+    color: #999;
+    line-height: 1.4;
+}
+
+.cast-kbd {
+    display: inline-block;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 5px;
+    padding: 2px 8px;
+    font-family: monospace;
+    font-size: 0.8rem;
+    color: #ddd;
+}
+
+.cast-divider {
+    text-align: center;
+    color: #666;
+    font-size: 0.85rem;
+    margin: 15px 0;
+    position: relative;
+}
+
+.cast-divider::before,
+.cast-divider::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: 35%;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.cast-divider::before {
+    left: 0;
+}
+
+.cast-divider::after {
+    right: 0;
+}
+
+.cast-tip {
+    background: rgba(99, 102, 241, 0.08);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-radius: 10px;
+    padding: 12px 15px;
+    margin-top: 18px;
+    font-size: 0.85rem;
+    color: #a5b4fc;
+    line-height: 1.5;
+}
+
+.cast-tip i {
+    margin-right: 6px;
+}
+
+@media (max-width: 768px) {
+    .cast-fab {
+        bottom: 15px;
+        right: 15px;
+        width: 50px;
+        height: 50px;
+        font-size: 1.1rem;
+    }
+
+    .cast-modal {
+        padding: 25px;
+        width: 95%;
+    }
+}

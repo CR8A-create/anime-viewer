@@ -504,6 +504,77 @@
             return new Date(timestamp).toLocaleDateString('es-ES');
         }
     </script>
+
+    <!-- Cast to TV FAB + Modal -->
+    <button class="cast-fab" id="castFab" onclick="document.getElementById('castModal').classList.add('active')"
+        title="Transmitir a TV">
+        <i class="fas fa-tv"></i>
+    </button>
+
+    <div class="cast-modal-overlay" id="castModal" onclick="if(event.target===this)this.classList.remove('active')">
+        <div class="cast-modal">
+            <div class="cast-modal-header">
+                <h3><i class="fas fa-tv"></i> Transmitir a TV</h3>
+                <button class="cast-modal-close"
+                    onclick="document.getElementById('castModal').classList.remove('active')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="cast-step">
+                <div class="cast-step-num">1</div>
+                <div class="cast-step-content">
+                    <h4>Google Chrome</h4>
+                    <p>Menú <span class="cast-kbd">⋮</span> → <strong>Transmitir</strong> o presiona <span
+                            class="cast-kbd">Ctrl</span>+<span class="cast-kbd">Shift</span>+<span
+                            class="cast-kbd">U</span></p>
+                </div>
+            </div>
+
+            <div class="cast-step">
+                <div class="cast-step-num">2</div>
+                <div class="cast-step-content">
+                    <h4>Microsoft Edge</h4>
+                    <p>Menú <span class="cast-kbd">⋯</span> → <strong>Más herramientas</strong> → <strong>Transmitir a
+                            dispositivo</strong></p>
+                </div>
+            </div>
+
+            <div class="cast-step">
+                <div class="cast-step-num">3</div>
+                <div class="cast-step-content">
+                    <h4>Selecciona tu dispositivo</h4>
+                    <p>Elige tu <strong>Chromecast</strong>, <strong>Smart TV</strong> o <strong>Android TV</strong> de
+                        la lista</p>
+                </div>
+            </div>
+
+            <div class="cast-divider">— Alternativas —</div>
+
+            <div class="cast-step">
+                <div class="cast-step-num"><i class="fas fa-mobile-alt" style="font-size:0.8rem"></i></div>
+                <div class="cast-step-content">
+                    <h4>Desde el móvil</h4>
+                    <p><strong>Android:</strong> Ajustes → Pantalla → Transmitir<br><strong>iPhone:</strong> Centro de
+                        control → Duplicar pantalla</p>
+                </div>
+            </div>
+
+            <div class="cast-step">
+                <div class="cast-step-num"><i class="fas fa-plug" style="font-size:0.8rem"></i></div>
+                <div class="cast-step-content">
+                    <h4>Cable HDMI</h4>
+                    <p>Conecta tu PC/laptop directamente a la TV — cero latencia, máxima calidad</p>
+                </div>
+            </div>
+
+            <div class="cast-tip">
+                <i class="fas fa-lightbulb"></i>
+                <strong>Consejo:</strong> Elige "Transmitir pestaña" para mejor compatibilidad. Si tienes lag, usa
+                "Transmitir pantalla" o un cable HDMI.
+            </div>
+        </div>
+    </div>
 </body>
 
 </html>
