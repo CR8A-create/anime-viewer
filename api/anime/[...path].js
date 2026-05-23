@@ -1,4 +1,4 @@
-const { cors, getCache, setCache, scraperGet, createSlug } = require('../../_lib/shared');
+const { cors, getCache, setCache, scraperGet, createSlug } = require('../_lib/shared');
 const cheerio = require('cheerio');
 
 async function searchAnimeFLV(query) {

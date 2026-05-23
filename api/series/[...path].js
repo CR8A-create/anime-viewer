@@ -1,4 +1,4 @@
-const { cors, getCache, setCache, tmdbGet, getImdbId } = require('../../_lib/shared');
+const { cors, getCache, setCache, tmdbGet, getImdbId } = require('../_lib/shared');
 
 module.exports = async (req, res) => {
     if (cors(req, res)) return;

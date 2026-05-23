@@ -1,4 +1,4 @@
-const { cors, getCache, setCache, tmdbGet, scraperGet, extractMovieSlug, parseLangBadges, titlesMatch, getImdbId, ZONAAPS_BASE, CUEVANA_BASE } = require('../../_lib/shared');
+const { cors, getCache, setCache, tmdbGet, scraperGet, extractMovieSlug, parseLangBadges, titlesMatch, getImdbId, ZONAAPS_BASE, CUEVANA_BASE } = require('../_lib/shared');
 const cheerio = require('cheerio');
 
 async function scrapeZonaAPS(query) {
