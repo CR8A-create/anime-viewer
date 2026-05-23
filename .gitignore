@@ -16,3 +16,4 @@ Thumbs.db
 # Capacitor
 /android/app/build/
 /android/.gradle/
+.vercel

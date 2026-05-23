@@ -3,9 +3,11 @@ console.log("Movies Logic Loaded - TURBO V2");
 
 const TMDB_IMAGE = 'https://image.tmdb.org/t/p';
 
+// ⚡ Migrado a Vercel Serverless
+const VERCEL_PROJECT = 'pagina-ver-anime'; // ← Cambia esto al nombre de tu proyecto en Vercel
 const MOVIES_BACKEND_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
     ? 'http://localhost:3000/api'
-    : 'https://mi-anime-api.onrender.com/api';
+    : `https://${VERCEL_PROJECT}.vercel.app/api`;
 
 // === SESSION CACHE ===
 const MV_CACHE_TTL = 5 * 60 * 1000;

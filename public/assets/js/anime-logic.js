@@ -1,6 +1,8 @@
 console.log("Anime Logic Loaded - Version: TURBO_V2");
 const API_URL = 'https://api.jikan.moe/v4';
-const PROD_URL = 'https://mi-anime-api.onrender.com/api';
+// ⚡ Migrado a Vercel Serverless — actualiza VERCEL_PROJECT con tu nombre de proyecto
+const VERCEL_PROJECT = 'pagina-ver-anime'; // ← Cambia esto al nombre de tu proyecto en Vercel
+const PROD_URL = `https://${VERCEL_PROJECT}.vercel.app/api`;
 const BACKEND_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
     ? 'http://localhost:3000/api'
     : PROD_URL;
@@ -221,7 +223,7 @@ async function fetchAllAnime(container, page = 1) {
 
 async function fetchAiringAnime(container) {
     try {
-        const response = await fetch(`${BACKEND_URL}/airing`);
+        const response = await fetch(`${BACKEND_URL}/anime/airing`);
         const data = await response.json();
         if (data.success && data.data.length > 0) {
             renderAnimeGrid(data.data, container);
@@ -374,7 +376,7 @@ function playRelativeEpisode(offset) {
 
 async function fetchSeasonAnimeForCarousel() {
     try {
-        const data = await cachedFetch('airing', `${BACKEND_URL}/airing`);
+        const data = await cachedFetch('airing', `${BACKEND_URL}/anime/airing`);
         if (data.success && data.data.length > 0) {
             setupCarousel(data.data);
         }
@@ -385,7 +387,7 @@ async function fetchSeasonAnimeForCarousel() {
 
 async function fetchRecentEpisodes() {
     try {
-        const data = await cachedFetch('recent', `${BACKEND_URL}/recent`);
+        const data = await cachedFetch('recent', `${BACKEND_URL}/anime/recent`);
 
         if (data.success && data.data.length > 0) {
             const recentEpisodes = data.data.map(item => ({
@@ -675,6 +677,23 @@ async function setupPlayerPage() {
     }
 }
 
+async function fetchDetailedInfo(title) {
+    try {
+        const cachedData = sessionStorage.getItem(`anime_${title}`);
+        if (cachedData) {
+            return JSON.parse(cachedData);
+        }
+
+        const response = await fetch(`${BACKEND_URL}/anime/info/${encodeURIComponent(title)}`);
+        const json = await response.json();
+        sessionStorage.setItem(`anime_${title}`, JSON.stringify(json));
+        return json;
+    } catch (e) {
+        console.error('Error fetching detailed info:', e);
+        return null;
+    }
+}
+
 async function initializePlayer(anime) {
     console.log('Inicializando player para:', anime.title);
     let detailsHtml = `
@@ -783,7 +802,7 @@ async function fetchVideoLinks(episodeNumber) {
     if (serverList) serverList.innerHTML = '<div class="loading">Obteniendo servidores...</div>';
 
     try {
-        const response = await fetch(`${BACKEND_URL}/videos/${currentSlug}/${episodeNumber}`);
+        const response = await fetch(`${BACKEND_URL}/anime/videos/${currentSlug}/${episodeNumber}`);
         const data = await response.json();
 
         if (data.success && data.servers.length > 0) {

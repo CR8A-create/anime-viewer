@@ -103,9 +103,10 @@
 
     <script src="../assets/js/anime-logic.js"></script>
     <script>
-        // Anonymous Comments for Anime
+        // ⚡ Migrado a Vercel Serverless
+        const VERCEL_PROJECT_ANIME = 'pagina-ver-anime';
         const COMMENTS_API = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-            ? 'http://localhost:3000/api' : 'https://mi-anime-api.onrender.com/api';
+            ? 'http://localhost:3000/api' : `https://${VERCEL_PROJECT_ANIME}.vercel.app/api`;
 
         function getAnimeContentId() {
             const params = new URLSearchParams(window.location.search);

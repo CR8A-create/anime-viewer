@@ -8,6 +8,20 @@
     <link rel="stylesheet" href="../assets/css/style.css">
     <link rel="stylesheet" href="../assets/css/movies-theme.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* ArtPlayer custom theme */
+        .artplayer-app { border-radius: 12px; overflow: hidden; background: #000; }
+        .art-bottom .art-progress .art-control-progress .art-control-progress-played { background: #9333ea !important; }
+        .art-bottom .art-progress .art-control-progress .art-control-progress-played::after { background: #c084fc !important; box-shadow: 0 0 8px #c084fc; }
+        .art-bottom .art-controls .art-control-volume .art-volume-panel .art-volume-slider .art-volume-handle { background: #9333ea !important; }
+        .art-setting { background: rgba(15, 10, 26, 0.95) !important; border: 1px solid rgba(147,51,234,0.3) !important; border-radius: 10px !important; }
+        .art-setting .art-setting-item:hover { background: rgba(147,51,234,0.2) !important; }
+        .art-notice .art-notice-inner { background: rgba(147,51,234,0.85) !important; border-radius: 6px !important; }
+        #artPlayerContainer { width: 100%; aspect-ratio: 16/9; border-radius: 12px; overflow: hidden; display: none; }
+        .player-mode-indicator { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; margin-left: 10px; }
+        .player-mode-indicator.native { background: rgba(147,51,234,0.2); color: #c084fc; }
+        .player-mode-indicator.embed { background: rgba(255,255,255,0.1); color: #888; }
+    </style>
 </head>
 
 <body data-page="movies-player">
@@ -35,6 +49,9 @@
         <div class="video-container">
             <h3 id="activeTitle" style="text-align: center; margin-bottom: 15px; color: var(--neon-purple);"></h3>
             <div class="video-wrapper" style="position: relative;">
+                <!-- ArtPlayer container (for direct .mp4/.m3u8 URLs) -->
+                <div id="artPlayerContainer"></div>
+                <!-- Iframe fallback (for embed URLs) -->
                 <iframe id="videoPlayer" src="" frameborder="0" allowfullscreen allow="autoplay"></iframe>
                 <div id="placeholderMessage" class="placeholder-message">
                     <i class="fas fa-film"></i>
@@ -138,10 +155,18 @@
             © 2025 - 2026 AniNova – Todos los derechos de las obras pertenecen a sus legítimos propietarios.</p>
     </footer>
 
+    <!-- ArtPlayer + HLS.js -->
+    <script src="https://cdn.jsdelivr.net/npm/artplayer@5.1.7/dist/artplayer.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.7/dist/hls.min.js"></script>
+
     <script>
+        // ⚡ Migrado a Vercel Serverless
+        const VERCEL_PROJECT = 'pagina-ver-anime';
         const MOVIES_BACKEND_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
             ? 'http://localhost:3000/api'
-            : 'https://mi-anime-api.onrender.com/api';
+            : `https://${VERCEL_PROJECT}.vercel.app/api`;
+
+        let artPlayerInstance = null;
 
         const params = new URLSearchParams(window.location.search);
         const tmdbId = params.get('id');
@@ -237,28 +262,139 @@
         // CHANGE SERVER (with loading overlay)
         // ================================================================
 
+        /**
+         * Smart server switch: uses ArtPlayer for direct video URLs (.mp4/.m3u8),
+         * falls back to iframe for embed URLs.
+         */
         function changeServer(name, url) {
-            const player = document.getElementById('videoPlayer');
+            const iframe = document.getElementById('videoPlayer');
+            const artContainer = document.getElementById('artPlayerContainer');
             const placeholder = document.getElementById('placeholderMessage');
             const overlay = document.getElementById('loadingOverlay');
 
-            // Show loading overlay
             overlay.style.display = 'flex';
             placeholder.style.display = 'none';
-            player.style.display = 'block';
-            player.src = url;
 
-            // Hide loading after iframe loads
-            player.onload = () => {
-                setTimeout(() => { overlay.style.display = 'none'; }, 500);
-            };
-            // Fallback: hide after 5s in case `onload` doesn't fire
-            setTimeout(() => { overlay.style.display = 'none'; }, 5000);
+            const isDirectVideo = /\.(mp4|m3u8|webm)(\?.*)?$/i.test(url);
+
+            if (isDirectVideo) {
+                // Use ArtPlayer for native playback
+                iframe.style.display = 'none';
+                artContainer.style.display = 'block';
+                initArtPlayer(url);
+                setTimeout(() => { overlay.style.display = 'none'; }, 800);
+            } else {
+                // Use iframe for embed URLs
+                if (artPlayerInstance) { artPlayerInstance.destroy(); artPlayerInstance = null; }
+                artContainer.style.display = 'none';
+                iframe.style.display = 'block';
+                iframe.src = url;
+                iframe.onload = () => { setTimeout(() => { overlay.style.display = 'none'; }, 500); };
+                setTimeout(() => { overlay.style.display = 'none'; }, 5000);
+            }
 
             // Highlight active server
             document.querySelectorAll('#serverList .server-btn').forEach(btn => {
                 btn.classList.toggle('active', btn.textContent === name);
             });
+        }
+
+        /**
+         * Initialize ArtPlayer with HLS support, speed controls, and custom theme.
+         */
+        function initArtPlayer(url) {
+            if (artPlayerInstance) { artPlayerInstance.destroy(); artPlayerInstance = null; }
+
+            const isHLS = /\.m3u8(\?.*)?$/i.test(url);
+
+            const options = {
+                container: '#artPlayerContainer',
+                url: url,
+                autoplay: true,
+                pip: true,
+                autoSize: false,
+                autoMini: true,
+                fullscreen: true,
+                fullscreenWeb: true,
+                playbackRate: true,
+                aspectRatio: true,
+                setting: true,
+                hotkey: true,
+                screenshot: true,
+                theme: '#9333ea',
+                volume: 0.8,
+                lang: 'es',
+                controls: [
+                    {
+                        name: 'next-episode',
+                        position: 'right',
+                        html: '<i class="fas fa-forward-step" style="font-size:16px"></i>',
+                        tooltip: 'Siguiente Episodio',
+                        click: function () {
+                            if (type === 'tv') {
+                                const nextEp = currentEpisode + 1;
+                                const epSelect = document.getElementById('episodeSelect');
+                                if (epSelect && nextEp <= epSelect.options.length) {
+                                    currentEpisode = nextEp;
+                                    epSelect.value = nextEp;
+                                    onEpisodeChange();
+                                }
+                            }
+                        },
+                    },
+                ],
+                settings: [
+                    {
+                        html: 'Velocidad',
+                        tooltip: 'Velocidad de reproducción',
+                        selector: [
+                            { html: '0.5x', value: 0.5 },
+                            { html: '0.75x', value: 0.75 },
+                            { html: 'Normal', value: 1, default: true },
+                            { html: '1.25x', value: 1.25 },
+                            { html: '1.5x', value: 1.5 },
+                            { html: '2x', value: 2 },
+                            { html: '3x', value: 3 },
+                        ],
+                        onSelect: function (item) {
+                            if (artPlayerInstance) artPlayerInstance.playbackRate = item.value;
+                            return item.html;
+                        },
+                    },
+                ],
+            };
+
+            // HLS support
+            if (isHLS && Hls.isSupported()) {
+                options.customType = {
+                    m3u8: function (video, url) {
+                        const hls = new Hls();
+                        hls.loadSource(url);
+                        hls.attachMedia(video);
+                        // Quality selector from HLS levels
+                        hls.on(Hls.Events.MANIFEST_PARSED, function (_, data) {
+                            if (data.levels.length > 1 && artPlayerInstance) {
+                                const qualities = data.levels.map((level, i) => ({
+                                    html: `${level.height}p`,
+                                    value: i,
+                                    default: i === data.levels.length - 1,
+                                }));
+                                artPlayerInstance.setting.add({
+                                    html: 'Calidad',
+                                    tooltip: 'Calidad de video',
+                                    selector: qualities,
+                                    onSelect: function (item) {
+                                        hls.currentLevel = item.value;
+                                        return item.html;
+                                    },
+                                });
+                            }
+                        });
+                    },
+                };
+            }
+
+            artPlayerInstance = new Artplayer(options);
         }
 
         // ================================================================

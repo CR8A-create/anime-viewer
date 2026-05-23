@@ -342,13 +342,33 @@ app.get('/api/series/airing', async (req, res) => {
 });
 
 app.get('/api/movies/search', async (req, res) => {
-    const { query } = req.query;
-    if (!query) return res.status(400).json({ success: false, message: 'Query required' });
+    const { query, q } = req.query;
 
+    // NEW: dual-source scraping search via ?q=
+    if (q) {
+        const cacheKey = `scrape-search:${q}`;
+        const cached = getCache(cacheKey);
+        if (cached) return res.json(cached);
+        const [zonaRes, cuevRes] = await Promise.allSettled([
+            scrapeZonaAPS_search(q),
+            scrapeCuevana_search(q)
+        ]);
+        const zonaItems = zonaRes.status === 'fulfilled' ? zonaRes.value : [];
+        const cuevItems = cuevRes.status === 'fulfilled' ? cuevRes.value : [];
+        const combined  = [...zonaItems];
+        for (const cv of cuevItems) {
+            if (!zonaItems.some(z => titlesMatch(z.title, cv.title))) combined.push(cv);
+        }
+        const result = { success: true, data: combined };
+        setCache(cacheKey, result);
+        return res.json(result);
+    }
+
+    // LEGACY: TMDB search via ?query=
+    if (!query) return res.status(400).json({ success: false, message: 'Query required' });
     const cacheKey = `search:${query}`;
     const cached = getCache(cacheKey);
     if (cached) return res.json(cached);
-
     try {
         const response = await axios.get(`${TMDB_BASE}/search/multi`, {
             params: { api_key: TMDB_API_KEY, language: 'es-ES', query: query }
@@ -511,6 +531,263 @@ app.get('/api/series/episode/:tmdbId/:season/:episode', async (req, res) => {
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
+});
+
+// ===================================================================
+// ZONAAPS + CUEVANA — PELÍCULAS EN ESPAÑOL
+// ===================================================================
+
+const SCRAPER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+const ZONAAPS_BASE = 'https://zonaaps.com';
+const CUEVANA_BASE = 'https://www.cuevana3.io';
+
+function scraperGet(url) {
+    return axios.get(url, {
+        timeout: 8000,
+        headers: { 'User-Agent': SCRAPER_UA }
+    });
+}
+
+function normTitle(t) {
+    return t.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function titlesMatch(a, b) {
+    const na = normTitle(a), nb = normTitle(b);
+    if (na === nb) return true;
+    if (na.length < 5 || nb.length < 5) return false;
+    return na.includes(nb) || nb.includes(na);
+}
+
+function parseLangBadges($el, $) {
+    const idiomas = [];
+    const BADGES = ['latino', 'castellano', 'ingles', 'portugues', 'japones', 'subtitulado'];
+    $el.find('img').each((_, img) => {
+        const src = ($(img).attr('src') || $(img).attr('data-src') || '').toLowerCase();
+        const alt = ($(img).attr('alt') || '').toLowerCase();
+        for (const b of BADGES) {
+            if ((src.includes(b) || alt.includes(b)) && !idiomas.includes(b)) idiomas.push(b);
+        }
+    });
+    return idiomas;
+}
+
+function extractMovieSlug(href) {
+    return (href || '').replace(/\/$/, '').split('/').pop();
+}
+
+// --- ZonaAPS scraper helpers ---
+
+async function scrapeZonaAPS_search(query) {
+    try {
+        const { data } = await scraperGet(`${ZONAAPS_BASE}/?s=${encodeURIComponent(query)}`);
+        const $ = cheerio.load(data);
+        const results = [];
+        $('article, .TPostMv, .ml-item').each((_, el) => {
+            const $el  = $(el);
+            const a    = $el.find(`a[href*="zonaaps.com"]`).first().length
+                       ? $el.find(`a[href*="zonaaps.com"]`).first()
+                       : $el.find('a').first();
+            const href  = a.attr('href') || '';
+            const slug  = extractMovieSlug(href);
+            const title = ($el.find('h2, .Title, .entry-title').first().text().trim()
+                         || a.attr('title') || '').trim();
+            const poster  = $el.find('img').attr('src') || $el.find('img').attr('data-src') || '';
+            const rating  = $el.find('.vote, .Score, .rating').first().text().trim();
+            const year    = ($el.find('.year, .Year, time').first().text().trim().match(/\d{4}/) || [])[0] || '';
+            const idiomas = parseLangBadges($el, $);
+            if (title && slug) results.push({ title, slug, poster, rating, year, idiomas, source: 'zonaaps' });
+        });
+        return results;
+    } catch (e) {
+        console.error('ZonaAPS search error:', e.message);
+        return [];
+    }
+}
+
+async function scrapeZonaAPS_detail(slug) {
+    const url = `${ZONAAPS_BASE}/movies/${slug}/`;
+    const { data } = await scraperGet(url);
+    const $ = cheerio.load(data);
+    const title    = $('h1.Title, h1.entry-title, h1').first().text().trim();
+    const poster   = $('img.TPostBg, .poster img, img.wp-post-image').first().attr('src') || '';
+    const rating   = $('.vote, .Score, .rating').first().text().trim();
+    const year     = ($('.Date, time, .year').first().text().trim().match(/\d{4}/) || [])[0] || '';
+    const synopsis = $('.Description p, .entry-content p, .sinopsis p').first().text().trim();
+    const idiomas  = parseLangBadges($('body'), $);
+    const players  = [];
+    $('[data-src], iframe[src]').each((_, el) => {
+        const $el   = $(el);
+        const src   = $el.attr('data-src') || $el.attr('src') || '';
+        const server = $el.closest('[data-server]').attr('data-server')
+                     || $el.attr('data-server')
+                     || 'Player';
+        const idioma = $el.closest('[data-lang]').attr('data-lang') || 'desconocido';
+        if (src && !src.startsWith('data:')) players.push({ server, url: src, idioma });
+    });
+    return { title, poster, rating, year, synopsis, idiomas, players };
+}
+
+// --- Cuevana scraper helpers ---
+
+async function scrapeCuevana_search(query) {
+    try {
+        const { data } = await scraperGet(`${CUEVANA_BASE}/?s=${encodeURIComponent(query)}`);
+        const $ = cheerio.load(data);
+        const results = [];
+        $('article, .TPostMv, .ml-item').each((_, el) => {
+            const $el  = $(el);
+            const a    = $el.find('a').first();
+            const href = a.attr('href') || '';
+            const slug = extractMovieSlug(href);
+            const title = ($el.find('h2, .Title, .entry-title').first().text().trim()
+                         || a.attr('title') || '').trim();
+            const poster = $el.find('img').attr('src') || $el.find('img').attr('data-src') || '';
+            const rating = $el.find('.vote, .Score').first().text().trim();
+            const year   = ($el.find('.Year, time').first().text().trim().match(/\d{4}/) || [])[0] || '';
+            if (title && slug) results.push({ title, slug, poster, rating, year, idiomas: ['subtitulado'], source: 'cuevana' });
+        });
+        return results;
+    } catch (e) {
+        console.error('Cuevana search error:', e.message);
+        return [];
+    }
+}
+
+async function scrapeCuevana_detail(slug) {
+    const url = `${CUEVANA_BASE}/peliculas/${slug}/`;
+    const { data } = await scraperGet(url);
+    const $ = cheerio.load(data);
+    const title    = $('h1.Title, h1').first().text().trim();
+    const poster   = $('img.TPostBg, .poster img, img.wp-post-image').first().attr('src') || '';
+    const rating   = $('.vote, .Score').first().text().trim();
+    const year     = ($('.Date, time').first().text().trim().match(/\d{4}/) || [])[0] || '';
+    const synopsis = $('.Description p, .entry-content p').first().text().trim();
+    const players  = [];
+    $('iframe[src], [data-src]').each((_, el) => {
+        const src    = $(el).attr('src') || $(el).attr('data-src') || '';
+        const server = $(el).closest('[data-server]').attr('data-server') || 'Cuevana Player';
+        if (src && !src.startsWith('data:')) players.push({ server, url: src, idioma: 'subtitulado' });
+    });
+    return { title, poster, rating, year, synopsis, idiomas: ['subtitulado'], players };
+}
+
+// GET /api/movies/zonaaps/:slug — detalle de película desde ZonaAPS
+app.get('/api/movies/zonaaps/:slug', async (req, res) => {
+    const { slug } = req.params;
+    const cacheKey = `zonaaps-detail:${slug}`;
+    const cached = getCache(cacheKey);
+    if (cached) return res.json(cached);
+    try {
+        const detail = await scrapeZonaAPS_detail(slug);
+        const result = { success: true, ...detail };
+        setCache(cacheKey, result);
+        res.json(result);
+    } catch (e) {
+        console.error('ZonaAPS detail error:', e.message);
+        res.status(500).json({ error: e.message, data: [] });
+    }
+});
+
+// GET /api/movies/cuevana/:slug — detalle de película desde Cuevana
+app.get('/api/movies/cuevana/:slug', async (req, res) => {
+    const { slug } = req.params;
+    const cacheKey = `cuevana-detail:${slug}`;
+    const cached = getCache(cacheKey);
+    if (cached) return res.json(cached);
+    try {
+        const detail = await scrapeCuevana_detail(slug);
+        const result = { success: true, ...detail };
+        setCache(cacheKey, result);
+        res.json(result);
+    } catch (e) {
+        console.error('Cuevana detail error:', e.message);
+        res.status(500).json({ error: e.message, data: [] });
+    }
+});
+
+// GET /api/movies/latino — películas con badge latino de ZonaAPS
+app.get('/api/movies/latino', async (req, res) => {
+    const cacheKey = 'zonaaps:latino';
+    const cached = getCache(cacheKey);
+    if (cached) return res.json(cached);
+    try {
+        const { data } = await scraperGet(`${ZONAAPS_BASE}/movies/`);
+        const $ = cheerio.load(data);
+        const items = [];
+        $('article, .TPostMv, .ml-item').each((_, el) => {
+            const $el    = $(el);
+            const idiomas = parseLangBadges($el, $);
+            if (!idiomas.includes('latino')) return;
+            const a    = $el.find('a').first();
+            const href = a.attr('href') || '';
+            const slug = extractMovieSlug(href);
+            const title = ($el.find('h2, .Title, .entry-title').first().text().trim()
+                         || a.attr('title') || '').trim();
+            const poster = $el.find('img').attr('src') || $el.find('img').attr('data-src') || '';
+            const rating = $el.find('.vote, .Score').first().text().trim();
+            if (title && slug) items.push({ title, slug, poster, rating, idiomas, source: 'zonaaps' });
+        });
+        const result = { success: true, data: items };
+        setCache(cacheKey, result);
+        res.json(result);
+    } catch (e) {
+        console.error('ZonaAPS latino error:', e.message);
+        res.status(500).json({ error: e.message, data: [] });
+    }
+});
+
+// GET /api/movies/recientes — últimas 20 películas combinando ZonaAPS + Cuevana
+app.get('/api/movies/recientes', async (req, res) => {
+    const cacheKey = 'movies:recientes';
+    const cached = getCache(cacheKey);
+    if (cached) return res.json(cached);
+
+    async function fetchZonaRecent() {
+        const { data } = await scraperGet(`${ZONAAPS_BASE}/movies/`);
+        const $ = cheerio.load(data);
+        const items = [];
+        $('article, .TPostMv, .ml-item').slice(0, 15).each((_, el) => {
+            const $el  = $(el);
+            const a    = $el.find('a').first();
+            const slug = extractMovieSlug(a.attr('href') || '');
+            const title = ($el.find('h2, .Title, .entry-title').first().text().trim()
+                         || a.attr('title') || '').trim();
+            const poster  = $el.find('img').attr('src') || $el.find('img').attr('data-src') || '';
+            const rating  = $el.find('.vote, .Score').first().text().trim();
+            const idiomas = parseLangBadges($el, $);
+            if (title && slug) items.push({ title, slug, poster, rating, idiomas, source: 'zonaaps' });
+        });
+        return items;
+    }
+
+    async function fetchCuevanaRecent() {
+        const { data } = await scraperGet(`${CUEVANA_BASE}/peliculas/`);
+        const $ = cheerio.load(data);
+        const items = [];
+        $('article, .TPostMv, .ml-item').slice(0, 15).each((_, el) => {
+            const $el  = $(el);
+            const a    = $el.find('a').first();
+            const slug = extractMovieSlug(a.attr('href') || '');
+            const title = ($el.find('h2, .Title, .entry-title').first().text().trim()
+                         || a.attr('title') || '').trim();
+            const poster = $el.find('img').attr('src') || $el.find('img').attr('data-src') || '';
+            const rating = $el.find('.vote, .Score').first().text().trim();
+            if (title && slug) items.push({ title, slug, poster, rating, idiomas: ['subtitulado'], source: 'cuevana' });
+        });
+        return items;
+    }
+
+    const [zonaRes, cuevRes] = await Promise.allSettled([fetchZonaRecent(), fetchCuevanaRecent()]);
+    const zonaItems = zonaRes.status === 'fulfilled' ? zonaRes.value : [];
+    const cuevItems = cuevRes.status === 'fulfilled' ? cuevRes.value : [];
+    const combined  = [...zonaItems];
+    for (const cv of cuevItems) {
+        if (!zonaItems.some(z => titlesMatch(z.title, cv.title))) combined.push(cv);
+    }
+    const result = { success: true, data: combined.slice(0, 20) };
+    setCache(cacheKey, result);
+    res.json(result);
 });
 
 // ===================================================================
