@@ -1,7 +1,7 @@
 console.log("Anime Logic Loaded - Version: TURBO_V2");
 const API_URL = 'https://api.jikan.moe/v4';
 // ⚡ Migrado a Vercel Serverless — actualiza VERCEL_PROJECT con tu nombre de proyecto
-const VERCEL_PROJECT = 'pagina-ver-anime'; // ← Cambia esto al nombre de tu proyecto en Vercel
+const VERCEL_PROJECT = 'aninova'; // ← Cambia esto al nombre de tu proyecto en Vercel
 const PROD_URL = `https://${VERCEL_PROJECT}.vercel.app/api`;
 const BACKEND_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
     ? 'http://localhost:3000/api'
