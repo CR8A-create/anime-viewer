@@ -13,8 +13,7 @@ async function searchAnimeFLV(query) {
 module.exports = async (req, res) => {
     if (cors(req, res)) return;
 
-    const { path } = req.query;
-    const action = path[0];
+    const action = (req.query.path && req.query.path[0]) || req.url.split('?')[0].split('/').filter(Boolean).pop();
 
     try {
         // --- AIRING ---

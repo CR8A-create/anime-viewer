@@ -16,7 +16,8 @@ const ALLOWED_ORIGINS = [
  * @returns {boolean} true if request was an OPTIONS preflight (already handled)
  */
 function cors(req, res) {
-    const origin = req.headers.origin || '';
+    const headers = (req && req.headers) || {};
+    const origin = headers.origin || '';
     const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
     res.setHeader('Access-Control-Allow-Origin', allowed);
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
