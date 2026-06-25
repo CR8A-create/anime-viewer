@@ -98,7 +98,7 @@ module.exports = async (req, res) => {
             return res.json(result);
         }
 
-        // --- VIDEOS (via JKAnime) ---
+        // --- VIDEOS (TioAnime primary + JKAnime fallback) ---
         if (action === 'videos') {
             const slug = req.query.slug || path[1];
             const episode = req.query.episode || path[2];
@@ -108,87 +108,57 @@ module.exports = async (req, res) => {
             const cached = getCache(cacheKey);
             if (cached) return res.json(cached);
 
-            // JKAnime slug candidates: try as-is, then strip common AnimeFLV suffixes
-            const slugCandidates = [
-                slug,
-                slug.replace(/-tv$/, ''),
-                slug.replace(/-ova$/, ''),
-                slug.replace(/-movie$/, ''),
-                slug.replace(/-specials?$/, ''),
-                slug.replace(/-(tv|ova|movie|specials?)$/, ''),
-            ].filter((v, i, a) => a.indexOf(v) === i); // deduplicate
-
-            // Embeddable server names we trust (can be used in iframe)
-            const EMBED_OK = ['Streamtape','VOE','Vidhide','Streamwish','Doodstream','Mp4upload','Mixdrop','YourUpload','Uqload'];
-
             let servers = [];
 
-            for (const jkSlug of slugCandidates) {
-                try {
-                    const { data } = await scraperGet(`https://jkanime.net/${jkSlug}/${episode}/`);
-                    const $ = cheerio.load(data);
-
-                    // JKAnime embeds server data as: var servers = [...];
-                    const scripts = $('script').map((_, el) => $(el).html()).get();
-                    const srvScript = scripts.find(s => s && s.includes('var servers ='));
-                    if (!srvScript) continue;
-
-                    const srvMatch = srvScript.match(/var servers = (\[[\s\S]*?\]);/);
-                    if (!srvMatch) continue;
-
-                    const srvData = JSON.parse(srvMatch[1]);
-
-                    // lang: 1 = Sub, 2 = Latino (based on JKAnime convention)
-                    servers = srvData
-                        .filter(s => EMBED_OK.includes(s.server))
-                        .map(s => ({
-                            name: s.server,
-                            url: Buffer.from(s.remote, 'base64').toString('utf8'),
-                            lang: s.lang === 2 ? 'lat' : 'sub',
-                        }));
-
-                    // Also grab the JKAnime player iframes as extra options
-                    const videoMatches = [...srvScript.matchAll(/video\[\d+\]\s*=\s*'<iframe[^>]+src="([^"]+)"/g)];
-                    videoMatches.forEach((m, i) => {
-                        if (!servers.some(s => s.url === m[1])) {
-                            servers.push({ name: `JK Player ${i + 1}`, url: m[1], lang: 'sub' });
-                        }
-                    });
-
-                    if (servers.length > 0) break;
-                } catch { continue; }
-            }
-
-            // Fallback: search JKAnime by title if slug candidates all failed
-            if (servers.length === 0) {
-                try {
-                    const titleQuery = slug.replace(/-/g, ' ');
-                    const { data: searchData } = await scraperGet(`https://jkanime.net/buscar/?q=${encodeURIComponent(titleQuery)}&id=anime`);
-                    const $s = cheerio.load(searchData);
-                    const firstResult = $s('.anime_box a').first().attr('href') || $s('.card a').first().attr('href');
-                    if (firstResult) {
-                        const jkSlugFromSearch = firstResult.replace(/^\/|\/$/g, '').split('/').pop();
-                        try {
-                            const { data: epData } = await scraperGet(`https://jkanime.net/${jkSlugFromSearch}/${episode}/`);
-                            const $ep = cheerio.load(epData);
-                            const epScripts = $ep('script').map((_, el) => $ep(el).html()).get();
-                            const epSrvScript = epScripts.find(s => s && s.includes('var servers ='));
-                            if (epSrvScript) {
-                                const epMatch = epSrvScript.match(/var servers = (\[[\s\S]*?\]);/);
-                                if (epMatch) {
-                                    const epData2 = JSON.parse(epMatch[1]);
-                                    servers = epData2
-                                        .filter(s => EMBED_OK.includes(s.server))
-                                        .map(s => ({
-                                            name: s.server,
-                                            url: Buffer.from(s.remote, 'base64').toString('utf8'),
-                                            lang: s.lang === 2 ? 'lat' : 'sub',
-                                        }));
-                                }
-                            }
-                        } catch { /* ignore */ }
+            // --- PRIMARY: TioAnime (same slug format as AnimeFLV, var videos in HTML) ---
+            try {
+                const { data } = await scraperGet(`https://tioanime.com/ver/${slug}-${episode}`);
+                const $ = cheerio.load(data);
+                const scripts = $('script').map((_, el) => $(el).html()).get();
+                const videoScript = scripts.find(s => s && s.includes('var videos ='));
+                if (videoScript) {
+                    const match = videoScript.match(/var videos = (\[[\s\S]*?\]);/);
+                    if (match) {
+                        const videoData = JSON.parse(match[1]);
+                        // format: [name, url, flag1, flag2] — TioAnime is sub-only
+                        servers = videoData
+                            .filter(([, url]) => url && !url.includes('mega.nz') && !url.includes('mail.ru'))
+                            .map(([name, url]) => ({ name, url, lang: 'sub' }));
                     }
-                } catch { /* ignore */ }
+                }
+            } catch { /* ignore */ }
+
+            // --- FALLBACK: JKAnime (has Latino dubs) ---
+            if (servers.length === 0) {
+                const EMBED_OK = ['Streamtape','VOE','Vidhide','Streamwish','Doodstream','Mp4upload','Mixdrop','YourUpload','Uqload'];
+                const slugCandidates = [
+                    slug,
+                    slug.replace(/-tv$/, ''),
+                    slug.replace(/-ova$/, ''),
+                    slug.replace(/-movie$/, ''),
+                    slug.replace(/-(tv|ova|movie|specials?)$/, ''),
+                ].filter((v, i, a) => a.indexOf(v) === i);
+
+                for (const jkSlug of slugCandidates) {
+                    try {
+                        const { data } = await scraperGet(`https://jkanime.net/${jkSlug}/${episode}/`);
+                        const $ = cheerio.load(data);
+                        const scripts = $('script').map((_, el) => $(el).html()).get();
+                        const srvScript = scripts.find(s => s && s.includes('var servers ='));
+                        if (!srvScript) continue;
+                        const srvMatch = srvScript.match(/var servers = (\[[\s\S]*?\]);/);
+                        if (!srvMatch) continue;
+                        const srvData = JSON.parse(srvMatch[1]);
+                        const jkServers = srvData
+                            .filter(s => EMBED_OK.includes(s.server))
+                            .map(s => ({
+                                name: s.server,
+                                url: Buffer.from(s.remote, 'base64').toString('utf8'),
+                                lang: s.lang === 2 ? 'lat' : 'sub',
+                            }));
+                        if (jkServers.length > 0) { servers = jkServers; break; }
+                    } catch { continue; }
+                }
             }
 
             if (servers.length === 0) {
