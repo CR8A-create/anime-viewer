@@ -722,7 +722,7 @@ async function initializePlayer(anime) {
     if (serverList) serverList.innerHTML = '';
 
     try {
-        const fetchUrl = `${BACKEND_URL}/anime/${encodeURIComponent(anime.title)}`;
+        const fetchUrl = `${BACKEND_URL}/anime/info?title=${encodeURIComponent(anime.title)}`;
         console.log('Fetching anime details from backend:', fetchUrl);
         const response = await fetch(fetchUrl);
         const data = await response.json();

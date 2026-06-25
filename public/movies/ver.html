@@ -229,9 +229,9 @@
             try {
                 let endpoint;
                 if (type === 'tv') {
-                    endpoint = `/series/servers/${tmdbId}/${currentSeason}/${currentEpisode}/${lang}`;
+                    endpoint = `/series/servers?id=${tmdbId}&season=${currentSeason}&episode=${currentEpisode}&lang=${lang}`;
                 } else {
-                    endpoint = `/movies/servers/${tmdbId}/${lang}`;
+                    endpoint = `/movies/servers?id=${tmdbId}&lang=${lang}`;
                 }
 
                 const response = await fetch(`${MOVIES_BACKEND_URL}${endpoint}`);
@@ -406,9 +406,9 @@
             try {
                 let endpoint;
                 if (type === 'tv') {
-                    endpoint = `/series/details/${tmdbId}`;
+                    endpoint = `/series/details?id=${tmdbId}`;
                 } else {
-                    endpoint = `/movies/details/${tmdbId}`;
+                    endpoint = `/movies/details?id=${tmdbId}`;
                 }
 
                 const response = await fetch(`${MOVIES_BACKEND_URL}${endpoint}`);
@@ -525,7 +525,7 @@
         async function loadEpisodeInfo() {
             if (type !== 'tv') return;
             try {
-                const response = await fetch(`${MOVIES_BACKEND_URL}/series/episode/${tmdbId}/${currentSeason}/${currentEpisode}`);
+                const response = await fetch(`${MOVIES_BACKEND_URL}/series/episode?id=${tmdbId}&season=${currentSeason}&episode=${currentEpisode}`);
                 const data = await response.json();
                 if (data.success && data.data) {
                     const ep = data.data;
