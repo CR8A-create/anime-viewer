@@ -38,7 +38,8 @@ async function scrapeCuevana(query) {
 module.exports = async (req, res) => {
     if (cors(req, res)) return;
 
-    const action = (req.query.path && req.query.path[0]) || req.url.split('?')[0].split('/').filter(Boolean).pop();
+    const path = req.query.path || [];
+    const action = path[0] || req.url.split('?')[0].split('/').filter(Boolean).pop();
 
     try {
         if (action === 'popular') {
@@ -75,7 +76,7 @@ module.exports = async (req, res) => {
         }
 
         if (action === 'details') {
-            const tmdbId = path[1];
+            const tmdbId = req.query.id || path[1];
             const cacheKey = `movies:details:${tmdbId}`;
             const cached = getCache(cacheKey);
             if (cached) return res.json(cached);
@@ -85,8 +86,8 @@ module.exports = async (req, res) => {
         }
 
         if (action === 'servers') {
-            const tmdbId = path[1];
-            const lang = path[2] || 'en';
+            const tmdbId = req.query.id || path[1];
+            const lang = req.query.lang || path[2] || 'en';
             const cacheKey = `movies:servers:${tmdbId}:${lang}`;
             const cached = getCache(cacheKey);
             if (cached) return res.json(cached);
@@ -94,19 +95,25 @@ module.exports = async (req, res) => {
             if (lang === 'es') {
                 const imdbId = await getImdbId(tmdbId, 'movie');
                 servers = [
+                    { name: 'MultiEmbed LAT', url: `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&lang=es` },
+                    { name: 'AutoEmbed LAT', url: `https://player.autoembed.cc/embed/movie/${tmdbId}?lang=spa` },
+                    { name: 'MoviesAPI LAT', url: `https://moviesapi.club/movie/${tmdbId}?lang=es` },
                     { name: 'Embed.su ES', url: `https://embed.su/embed/movie/${tmdbId}?lang=Spanish` },
-                    { name: 'MultiEmbed ES', url: `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&lang=es` },
-                    { name: 'AutoEmbed ES', url: `https://player.autoembed.cc/embed/movie/${tmdbId}?lang=spa` },
-                    { name: 'MoviesAPI ES', url: `https://moviesapi.club/movie/${tmdbId}?lang=es` }
+                    { name: 'VidSrc LAT', url: `https://vidsrc.xyz/embed/movie?tmdb=${tmdbId}&lang=es` },
                 ];
-                if (imdbId) servers.push({ name: 'WarezCDN ES', url: `https://embed.warezcdn.com/filme/${imdbId}` });
+                if (imdbId) {
+                    servers.push({ name: 'WarezCDN', url: `https://embed.warezcdn.com/filme/${imdbId}` });
+                    servers.push({ name: 'NetMirror', url: `https://netmirror.app/player/${imdbId}` });
+                }
             } else {
                 servers = [
                     { name: 'VidSrc.to', url: `https://vidsrc.to/embed/movie/${tmdbId}` },
                     { name: 'Embed.su', url: `https://embed.su/embed/movie/${tmdbId}` },
                     { name: 'VidSrc PRO', url: `https://vidsrc.pro/embed/movie/${tmdbId}` },
                     { name: 'VidSrc.in', url: `https://vidsrc.in/embed/movie?tmdb=${tmdbId}` },
-                    { name: 'AutoEmbed', url: `https://player.autoembed.cc/embed/movie/${tmdbId}` }
+                    { name: 'AutoEmbed', url: `https://player.autoembed.cc/embed/movie/${tmdbId}` },
+                    { name: 'VidSrc.xyz', url: `https://vidsrc.xyz/embed/movie?tmdb=${tmdbId}` },
+                    { name: 'MultiEmbed', url: `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1` },
                 ];
             }
             setCache(cacheKey, { success: true, servers, lang });

@@ -1,88 +1,469 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ver Anime - AniNova</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
-</head>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+        :root {
+            --accent: #e50914;
+            --accent2: #ff6b6b;
+            --bg: #0d0d0d;
+            --bg2: #141414;
+            --bg3: #1c1c1c;
+            --border: #2a2a2a;
+            --text: #e5e5e5;
+            --text2: #aaa;
+            --text3: #666;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Outfit', sans-serif;
+            min-height: 100vh;
+        }
+
+        /* ── HEADER ── */
+        header {
+            background: rgba(13,13,13,0.97);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            padding: 0 24px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            height: 60px;
+            display: flex;
+            align-items: center;
+        }
+        .header-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .logo a { text-decoration: none; }
+        .logo h1 { font-size: 1.4rem; font-weight: 700; color: #fff; letter-spacing: -0.5px; }
+        .logo .highlight { color: var(--accent); }
+        nav ul { list-style: none; display: flex; gap: 24px; }
+        nav ul li a { text-decoration: none; color: var(--text2); font-size: 0.875rem; font-weight: 500; transition: color 0.2s; }
+        nav ul li a:hover { color: #fff; }
+
+        /* ── MAIN LAYOUT ── */
+        .player-page {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px 20px 60px;
+        }
+
+        /* ── TOP BAR ── */
+        .top-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+        .back-btn {
+            background: none;
+            border: none;
+            color: var(--text2);
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 0;
+            transition: color 0.2s;
+        }
+        .back-btn:hover { color: #fff; }
+        #activeEpisodeTitle {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text2);
+            display: none;
+        }
+
+        /* ── VIDEO PLAYER ── */
+        .video-wrapper {
+            position: relative;
+            aspect-ratio: 16 / 9;
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.7);
+            margin-bottom: 16px;
+        }
+        #videoPlayer {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: none;
+        }
+        .placeholder-message {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            background: #0a0a0a;
+            color: var(--text3);
+        }
+        .placeholder-message i { font-size: 2.5rem; color: var(--border); }
+        .placeholder-message h3 { font-size: 1.1rem; color: var(--text2); }
+        .placeholder-message p { font-size: 0.85rem; }
+
+        /* ── EP NAVIGATION ── */
+        .ep-nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .control-btn {
+            padding: 9px 20px;
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            color: var(--text2);
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+        .control-btn:hover:not(:disabled) { background: var(--border); color: #fff; }
+        .control-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+        .ep-nav-center { font-size: 0.85rem; color: var(--text3); }
+
+        /* ── SERVER SECTION ── */
+        .server-section { margin-bottom: 24px; }
+        .server-label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text3);
+            margin-bottom: 10px;
+        }
+        .lang-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .lang-tab {
+            padding: 6px 18px;
+            border-radius: 20px;
+            border: 2px solid var(--border);
+            background: transparent;
+            color: var(--text2);
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            transition: all 0.2s;
+            display: none;
+        }
+        .lang-tab.visible { display: inline-flex; align-items: center; gap: 5px; }
+        .lang-tab.active { border-color: var(--accent); background: var(--accent); color: #fff; }
+        .lang-tab:hover:not(.active) { border-color: #444; color: #fff; }
+        .server-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            min-height: 36px;
+        }
+        .server-btn {
+            padding: 7px 16px;
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            color: var(--text2);
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.82rem;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .server-btn:hover { background: var(--border); color: #fff; }
+        .server-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+        /* ── DIVIDER ── */
+        .divider {
+            border: none;
+            border-top: 1px solid var(--border);
+            margin: 20px 0;
+        }
+
+        /* ── EPISODES SECTION ── */
+        .section-heading {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text3);
+            margin-bottom: 12px;
+        }
+        .range-selector {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+        .range-btn {
+            padding: 4px 12px;
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text3);
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.78rem;
+            transition: all 0.2s;
+        }
+        .range-btn:hover { border-color: #444; color: var(--text2); }
+        .range-btn.active { background: var(--bg3); border-color: #555; color: #fff; }
+        .episodes-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .episode-btn {
+            padding: 10px 14px;
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            color: var(--text2);
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.82rem;
+            font-weight: 600;
+            min-width: 90px;
+            text-align: center;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        .episode-btn i { font-size: 0.7rem; opacity: 0.6; }
+        .episode-btn:hover { background: var(--border); color: #fff; }
+        .episode-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+        .episode-btn.active i { opacity: 1; }
+
+        /* ── ANIME INFO ── */
+        .anime-info-detailed h2 { font-size: 1.6rem; font-weight: 700; margin-bottom: 10px; line-height: 1.2; }
+        .anime-info-detailed p { color: var(--text2); line-height: 1.65; margin-bottom: 6px; font-size: 0.9rem; }
+        .synopsis-es { color: var(--text3) !important; }
+        .anime-info-detailed strong { color: var(--text); }
+
+        /* ── COMMENTS ── */
+        .comments-section h3 {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .comment-count {
+            background: var(--accent);
+            color: #fff;
+            border-radius: 10px;
+            padding: 1px 8px;
+            font-size: 0.72rem;
+            font-weight: 700;
+        }
+        .comment-input-area {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 16px;
+            align-items: flex-start;
+        }
+        .comment-input-area > div { flex: 1; }
+        #commentInput {
+            width: 100%;
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            color: #fff;
+            border-radius: 8px;
+            padding: 12px;
+            font-family: inherit;
+            font-size: 0.875rem;
+            resize: none;
+            height: 80px;
+            transition: border-color 0.2s;
+        }
+        #commentInput:focus { outline: none; border-color: #444; }
+        .comment-char-count { font-size: 0.72rem; color: var(--text3); text-align: right; margin-top: 4px; }
+        .comment-error { color: var(--accent); font-size: 0.8rem; margin-top: 4px; display: none; }
+        .comment-send-btn {
+            background: var(--accent);
+            border: none;
+            color: #fff;
+            border-radius: 8px;
+            padding: 12px 16px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: opacity 0.2s;
+            flex-shrink: 0;
+        }
+        .comment-send-btn:hover { opacity: 0.85; }
+        .comment-send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .comment-item {
+            padding: 12px 14px;
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+        .comment-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+        .comment-author { font-weight: 700; color: var(--accent); font-size: 0.85rem; }
+        .comment-time { color: var(--text3); font-size: 0.78rem; }
+        .comment-text { color: var(--text2); font-size: 0.875rem; line-height: 1.5; }
+        .comment-empty { color: var(--text3); text-align: center; padding: 24px; font-size: 0.9rem; }
+
+        .loading { color: var(--text3); padding: 16px 0; font-size: 0.875rem; }
+
+        /* ── FOOTER ── */
+        footer {
+            background: var(--bg2);
+            border-top: 1px solid var(--border);
+            color: var(--text3);
+            padding: 24px;
+            text-align: center;
+            font-size: 0.78rem;
+            line-height: 1.7;
+        }
+
+        /* ── RESPONSIVE ── */
+        @media (max-width: 600px) {
+            header { padding: 0 14px; }
+            nav { display: none; }
+            .player-page { padding: 14px 14px 60px; }
+            .episode-btn { min-width: 70px; padding: 8px 10px; }
+            .anime-info-detailed h2 { font-size: 1.25rem; }
+        }
+    </style>
+</head>
 <body data-page="player">
-    <!-- Header -->
+
     <header>
-        <div class="container header-content">
+        <div class="header-inner">
             <div class="logo">
-                <a href="../index.html">
-                    <h1>Ani<span class="highlight">Nova</span></h1>
-                </a>
+                <a href="../index.html"><h1>Ani<span class="highlight">Nova</span></h1></a>
             </div>
             <nav>
                 <ul>
                     <li><a href="index.html">Inicio</a></li>
                     <li><a href="directorio.html">Directorio</a></li>
                     <li><a href="emision.html">En Emisión</a></li>
-                    <li><a href="../movies/index.html">Películas/Series</a></li>
+                    <li><a href="../movies/index.html">Películas</a></li>
                 </ul>
             </nav>
         </div>
     </header>
 
-    <main id="playerContent" class="container section">
-        <button class="back-btn" onclick="window.location.href='index.html'"><i class="fas fa-arrow-left"></i> Volver al
-            Inicio</button>
+    <main class="player-page">
 
-        <div class="video-container">
-            <h3 id="activeEpisodeTitle" class="active-episode-title"
-                style="display:none; text-align: center; margin-bottom: 15px; color: var(--neon-blue); text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);">
-            </h3>
-            <div class="video-wrapper">
-                <iframe id="videoPlayer" src="" frameborder="0" allowfullscreen></iframe>
-                <div id="placeholderMessage" class="placeholder-message">
-                    <i class="fas fa-film"></i>
-                    <h3>Selecciona un Servidor</h3>
-                    <p>Buscando enlaces...</p>
-                </div>
+        <!-- Top bar: back + episode title -->
+        <div class="top-bar">
+            <button class="back-btn" onclick="window.location.href='index.html'">
+                <i class="fas fa-arrow-left"></i> Volver
+            </button>
+            <span id="activeEpisodeTitle"></span>
+        </div>
+
+        <!-- Video player -->
+        <div class="video-wrapper">
+            <iframe id="videoPlayer" src="" frameborder="0"
+                allow="autoplay; fullscreen; picture-in-picture"
+                allowfullscreen></iframe>
+            <div id="placeholderMessage" class="placeholder-message">
+                <i class="fas fa-film"></i>
+                <h3>Selecciona un Servidor</h3>
+                <p>Buscando servidores disponibles...</p>
             </div>
         </div>
 
-        <div class="video-controls">
-            <button id="prevEpBtn" class="control-btn" disabled><i class="fas fa-chevron-left"></i> Anterior</button>
-            <button id="nextEpBtn" class="control-btn" disabled>Siguiente <i class="fas fa-chevron-right"></i></button>
+        <!-- Episode navigation -->
+        <div class="ep-nav">
+            <button id="prevEpBtn" class="control-btn" disabled>
+                <i class="fas fa-chevron-left"></i> Anterior
+            </button>
+            <span class="ep-nav-center" id="epNavCenter"></span>
+            <button id="nextEpBtn" class="control-btn" disabled>
+                Siguiente <i class="fas fa-chevron-right"></i>
+            </button>
         </div>
 
-        <div class="server-controls">
-            <span><i class="fas fa-server"></i> Servidores:</span>
+        <!-- Server section -->
+        <div class="server-section">
+            <div class="server-label"><i class="fas fa-server"></i> &nbsp;Servidor</div>
+            <div class="lang-tabs">
+                <button class="lang-tab" id="tabLat" onclick="switchLang('lat')">
+                    <i class="fas fa-circle" style="font-size:0.5rem;color:#f59e0b"></i> Latino
+                </button>
+                <button class="lang-tab" id="tabSub" onclick="switchLang('sub')">
+                    <i class="fas fa-circle" style="font-size:0.5rem;color:#60a5fa"></i> Subtitulado
+                </button>
+            </div>
             <div class="server-list">
-                <!-- Buttons injected via JS -->
-                <button class="server-btn">Cargando...</button>
+                <button class="server-btn" disabled>Cargando...</button>
             </div>
         </div>
 
-        <div class="anime-info-detailed" id="animeInfoDetailed">
-            <!-- Details injected via JS -->
-            <div class="loading">Cargando información del anime...</div>
-        </div>
+        <hr class="divider">
 
-        <!-- Episode List -->
+        <!-- Episodes -->
         <div class="episodes-container">
-            <h3><i class="fas fa-list-ol"></i> Episodios</h3>
+            <div class="section-heading"><i class="fas fa-list-ol"></i> &nbsp;Episodios</div>
             <div class="episodes-list" id="episodesList">
-                <!-- Episodes injected via JS -->
+                <div class="loading">Cargando episodios...</div>
             </div>
         </div>
 
-        <!-- Comments Section -->
+        <hr class="divider">
+
+        <!-- Anime info -->
+        <div class="anime-info-detailed" id="animeInfoDetailed">
+            <div class="loading">Cargando información...</div>
+        </div>
+
+        <hr class="divider">
+
+        <!-- Comments -->
         <div class="comments-section" id="commentsSection">
-            <h3><i class="fas fa-comments"></i> Comentarios <span class="comment-count" id="commentCount">0</span></h3>
+            <h3>
+                <i class="fas fa-comments"></i> Comentarios
+                <span class="comment-count" id="commentCount">0</span>
+            </h3>
             <div class="comment-input-area">
-                <div style="flex: 1;">
-                    <textarea id="commentInput" placeholder="Escribe tu comentario anónimo... (máx. 500 caracteres)"
+                <div>
+                    <textarea id="commentInput"
+                        placeholder="Escribe tu comentario anónimo... (máx. 500 caracteres)"
                         maxlength="500"></textarea>
                     <div class="comment-char-count"><span id="charCount">0</span>/500</div>
-                    <div class="comment-error" id="commentError" style="display: none;"></div>
+                    <div class="comment-error" id="commentError"></div>
                 </div>
                 <button class="comment-send-btn" id="commentSendBtn" onclick="postAnimeComment()">
                     <i class="fas fa-paper-plane"></i>
@@ -92,49 +473,133 @@
                 <div class="comment-empty">Sé el primero en comentar 💬</div>
             </div>
         </div>
+
     </main>
 
-    <footer style="background:#1f1f1f; color:#999; padding:25px; text-align:center; font-size:0.85em;">
-        <p><strong>Aviso importante</strong><br>
+    <footer>
+        <p>
+            <strong>Aviso importante</strong><br>
             Sitio 100% sin fines de lucro · Proyecto personal y hobby · Uso privado entre amigos<br>
             No alojamos archivos · Enlaces de terceros · Sin publicidad ni monetización<br>
-            © 2025 - 2026 AniNova – Todos los derechos de las obras pertenecen a sus legítimos propietarios.</p>
+            © 2025 – 2026 AniNova – Todos los derechos de las obras pertenecen a sus legítimos propietarios.
+        </p>
     </footer>
 
     <script src="../assets/js/anime-logic.js"></script>
     <script>
-        // ⚡ Migrado a Vercel Serverless
+        // ── Comments API ──────────────────────────────────────────
         const VERCEL_PROJECT_ANIME = 'pagina-ver-anime';
         const COMMENTS_API = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-            ? 'http://localhost:3000/api' : `https://${VERCEL_PROJECT_ANIME}.vercel.app/api`;
+            ? 'http://localhost:3000/api'
+            : `https://${VERCEL_PROJECT_ANIME}.vercel.app/api`;
 
-        function getAnimeContentId() {
-            const params = new URLSearchParams(window.location.search);
-            const anime = params.get('anime') || 'unknown';
-            return 'anime_' + anime.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 50);
+        // ── Language tab state ────────────────────────────────────
+        let _allServers = [];
+        let _activeLang = null;
+
+        // Override anime-logic's updateServerButtons to add language tabs
+        const _originalUpdateServerButtons = window.updateServerButtons;
+        window.updateServerButtons = function(servers) {
+            _allServers = servers;
+            const latServers = servers.filter(s => s.lang === 'lat');
+            const subServers = servers.filter(s => s.lang === 'sub');
+            const tabLat = document.getElementById('tabLat');
+            const tabSub = document.getElementById('tabSub');
+
+            if (latServers.length > 0 || subServers.length > 0) {
+                if (latServers.length > 0) { tabLat.classList.add('visible'); }
+                if (subServers.length > 0) { tabSub.classList.add('visible'); }
+                // Default: Latino if available, else Sub
+                const defaultLang = latServers.length > 0 ? 'lat' : 'sub';
+                switchLang(defaultLang);
+            } else {
+                tabLat.classList.remove('visible');
+                tabSub.classList.remove('visible');
+                _renderServerBtns(servers);
+            }
+        };
+
+        function switchLang(lang) {
+            _activeLang = lang;
+            document.getElementById('tabLat').classList.toggle('active', lang === 'lat');
+            document.getElementById('tabSub').classList.toggle('active', lang === 'sub');
+            const filtered = _allServers.filter(s => s.lang === lang || (!s.lang && !_allServers.some(x => x.lang)));
+            _renderServerBtns(filtered);
         }
 
+        function _renderServerBtns(servers) {
+            const list = document.querySelector('.server-list');
+            list.innerHTML = '';
+            if (servers.length === 0) {
+                list.innerHTML = '<span style="color:var(--text3);font-size:0.85rem">Sin servidores para este idioma</span>';
+                return;
+            }
+            servers.forEach((s, i) => {
+                const btn = document.createElement('button');
+                btn.className = 'server-btn' + (i === 0 ? ' active' : '');
+                btn.textContent = s.name;
+                btn.onclick = () => {
+                    document.querySelectorAll('.server-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    changeServer(s.name, s.url);
+                };
+                list.appendChild(btn);
+            });
+            if (servers.length > 0) changeServer(servers[0].name, servers[0].url);
+        }
+
+        // ── Episode active highlight ──────────────────────────────
+        const _origFetchVideoLinks = window.fetchVideoLinks;
+        // Highlight active episode button
+        const _origRenderEpisodeChunk = window.renderEpisodeChunk;
+        if (_origRenderEpisodeChunk) {
+            window.renderEpisodeChunk = function(chunk) {
+                _origRenderEpisodeChunk(chunk);
+                highlightActiveEp();
+            };
+        }
+
+        function highlightActiveEp() {
+            if (!window.currentEpisodeNumber) return;
+            document.querySelectorAll('.episode-btn').forEach(btn => {
+                const ep = btn.getAttribute('data-ep');
+                btn.classList.toggle('active', ep == window.currentEpisodeNumber);
+            });
+        }
+
+        // ── Comments ──────────────────────────────────────────────
+        function getAnimeContentId() {
+            const params = new URLSearchParams(window.location.search);
+            const anime = params.get('anime') || params.get('id') || 'unknown';
+            return 'anime_' + anime.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 50);
+        }
         const animeContentId = getAnimeContentId();
 
-        document.getElementById('commentInput').addEventListener('input', function () {
+        document.getElementById('commentInput').addEventListener('input', function() {
             document.getElementById('charCount').textContent = this.value.length;
         });
-
-        document.getElementById('commentInput').addEventListener('keydown', function (e) {
+        document.getElementById('commentInput').addEventListener('keydown', function(e) {
             if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); postAnimeComment(); }
         });
 
         async function loadAnimeComments() {
             try {
-                const response = await fetch(`${COMMENTS_API}/comments/${animeContentId}`);
-                const data = await response.json();
+                const res = await fetch(`${COMMENTS_API}/comments/${animeContentId}`);
+                const data = await res.json();
                 const list = document.getElementById('commentsList');
                 const countEl = document.getElementById('commentCount');
-                if (data.success && data.comments.length > 0) {
+                if (data.success && data.comments && data.comments.length > 0) {
                     countEl.textContent = data.comments.length;
                     list.innerHTML = '';
-                    data.comments.reverse().forEach(c => {
-                        list.innerHTML += `<div class="comment-item"><div class="comment-header"><span class="comment-author">${escHtml(c.name)}</span><span class="comment-time">${tAgo(c.timestamp)}</span></div><p class="comment-text">${escHtml(c.text)}</p></div>`;
+                    [...data.comments].reverse().forEach(c => {
+                        list.innerHTML += `
+                            <div class="comment-item">
+                                <div class="comment-header">
+                                    <span class="comment-author">${escHtml(c.name || 'Anónimo')}</span>
+                                    <span class="comment-time">${tAgo(c.timestamp)}</span>
+                                </div>
+                                <p class="comment-text">${escHtml(c.text)}</p>
+                            </div>`;
                     });
                 } else {
                     countEl.textContent = '0';
@@ -152,109 +617,44 @@
             btn.disabled = true;
             errorEl.style.display = 'none';
             try {
-                const response = await fetch(`${COMMENTS_API}/comments/${animeContentId}`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                const res = await fetch(`${COMMENTS_API}/comments/${animeContentId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ text })
                 });
-                const data = await response.json();
+                const data = await res.json();
                 if (data.success) {
                     input.value = '';
                     document.getElementById('charCount').textContent = '0';
                     loadAnimeComments();
                 } else {
-                    errorEl.textContent = data.message || 'Error';
+                    errorEl.textContent = data.message || 'Error al enviar';
                     errorEl.style.display = 'block';
                 }
-            } catch (err) {
+            } catch {
                 errorEl.textContent = 'Error de conexión';
                 errorEl.style.display = 'block';
             }
             setTimeout(() => { btn.disabled = false; }, 2000);
         }
 
-        function escHtml(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+        function escHtml(t) {
+            const d = document.createElement('div');
+            d.textContent = t;
+            return d.innerHTML;
+        }
         function tAgo(ts) {
             const d = Date.now() - new Date(ts).getTime(), m = Math.floor(d / 60000);
-            if (m < 1) return 'ahora'; if (m < 60) return `hace ${m}m`;
-            const h = Math.floor(m / 60); if (h < 24) return `hace ${h}h`;
-            const dd = Math.floor(h / 24); if (dd < 30) return `hace ${dd}d`;
+            if (m < 1) return 'ahora';
+            if (m < 60) return `hace ${m}m`;
+            const h = Math.floor(m / 60);
+            if (h < 24) return `hace ${h}h`;
+            const dd = Math.floor(h / 24);
+            if (dd < 30) return `hace ${dd}d`;
             return new Date(ts).toLocaleDateString('es-ES');
         }
 
-        // Load comments on page load
         loadAnimeComments();
     </script>
-
-    <!-- Cast to TV FAB + Modal -->
-    <button class="cast-fab" id="castFab" onclick="document.getElementById('castModal').classList.add('active')"
-        title="Transmitir a TV">
-        <i class="fas fa-tv"></i>
-    </button>
-
-    <div class="cast-modal-overlay" id="castModal" onclick="if(event.target===this)this.classList.remove('active')">
-        <div class="cast-modal">
-            <div class="cast-modal-header">
-                <h3><i class="fas fa-tv"></i> Transmitir a TV</h3>
-                <button class="cast-modal-close"
-                    onclick="document.getElementById('castModal').classList.remove('active')">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-
-            <div class="cast-step">
-                <div class="cast-step-num">1</div>
-                <div class="cast-step-content">
-                    <h4>Google Chrome</h4>
-                    <p>Menú <span class="cast-kbd">⋮</span> → <strong>Transmitir</strong> o presiona <span
-                            class="cast-kbd">Ctrl</span>+<span class="cast-kbd">Shift</span>+<span
-                            class="cast-kbd">U</span></p>
-                </div>
-            </div>
-
-            <div class="cast-step">
-                <div class="cast-step-num">2</div>
-                <div class="cast-step-content">
-                    <h4>Microsoft Edge</h4>
-                    <p>Menú <span class="cast-kbd">⋯</span> → <strong>Más herramientas</strong> → <strong>Transmitir a
-                            dispositivo</strong></p>
-                </div>
-            </div>
-
-            <div class="cast-step">
-                <div class="cast-step-num">3</div>
-                <div class="cast-step-content">
-                    <h4>Selecciona tu dispositivo</h4>
-                    <p>Elige tu <strong>Chromecast</strong>, <strong>Smart TV</strong> o <strong>Android TV</strong> de
-                        la lista</p>
-                </div>
-            </div>
-
-            <div class="cast-divider">— Alternativas —</div>
-
-            <div class="cast-step">
-                <div class="cast-step-num"><i class="fas fa-mobile-alt" style="font-size:0.8rem"></i></div>
-                <div class="cast-step-content">
-                    <h4>Desde el móvil</h4>
-                    <p><strong>Android:</strong> Ajustes → Pantalla → Transmitir<br><strong>iPhone:</strong> Centro de
-                        control → Duplicar pantalla</p>
-                </div>
-            </div>
-
-            <div class="cast-step">
-                <div class="cast-step-num"><i class="fas fa-plug" style="font-size:0.8rem"></i></div>
-                <div class="cast-step-content">
-                    <h4>Cable HDMI</h4>
-                    <p>Conecta tu PC/laptop directamente a la TV — cero latencia, máxima calidad</p>
-                </div>
-            </div>
-
-            <div class="cast-tip">
-                <i class="fas fa-lightbulb"></i>
-                <strong>Consejo:</strong> Elige "Transmitir pestaña" para mejor compatibilidad. Si tienes lag, usa
-                "Transmitir pantalla" o un cable HDMI.
-            </div>
-        </div>
-    </div>
 </body>
-
 </html>

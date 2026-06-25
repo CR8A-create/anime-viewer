@@ -13,7 +13,8 @@ async function searchAnimeFLV(query) {
 module.exports = async (req, res) => {
     if (cors(req, res)) return;
 
-    const action = (req.query.path && req.query.path[0]) || req.url.split('?')[0].split('/').filter(Boolean).pop();
+    const path = req.query.path || [];
+    const action = path[0] || req.url.split('?')[0].split('/').filter(Boolean).pop();
 
     try {
         // --- AIRING ---
@@ -60,7 +61,7 @@ module.exports = async (req, res) => {
 
         // --- INFO ---
         if (action === 'info') {
-            const title = req.query.title || path[1];
+            const title = req.query.title || path[1] || '';
             if (!title) return res.status(400).json({ success: false, message: 'Title required' });
             const cacheKey = `anime:info:${title}`;
             const cached = getCache(cacheKey);
@@ -99,18 +100,34 @@ module.exports = async (req, res) => {
 
         // --- VIDEOS ---
         if (action === 'videos') {
+            const path = req.query.path || [];
             const slug = path[1];
             const episode = path[2];
             if (!slug || !episode) return res.status(400).json({ success: false, message: 'Slug and episode required' });
-            
+
+            const cacheKey = `anime:videos:${slug}:${episode}`;
+            const cached = getCache(cacheKey);
+            if (cached) return res.json(cached);
+
             const { data } = await scraperGet(`https://www3.animeflv.net/ver/${slug}-${episode}`);
-            const scripts = cheerio.load(data)('script').map((i, el) => cheerio.load(data)(el).html()).get();
+            const $ = cheerio.load(data);
+            const scripts = $('script').map((_, el) => $(el).html()).get();
             const videosScript = scripts.find(s => s && s.includes('var videos ='));
-            if (!videosScript) return res.json({ success: false, message: 'Sin videos' });
-            
-            const videosData = JSON.parse(videosScript.match(/var videos = (\{.*?\});/)[1]);
-            const servers = (videosData.SUB || []).map(s => ({ name: s.server, url: s.code }));
-            return res.json({ success: true, servers });
+            if (!videosScript) return res.json({ success: false, message: 'Sin videos disponibles' });
+
+            // Use [\s\S] to match across newlines
+            const match = videosScript.match(/var videos = (\{[\s\S]*?\});/);
+            if (!match) return res.json({ success: false, message: 'Error al parsear servidores' });
+
+            const videosData = JSON.parse(match[1]);
+            const latServers = (videosData.LAT || []).map(s => ({ name: s.server, url: s.code, lang: 'lat' }));
+            const subServers = (videosData.SUB || []).map(s => ({ name: s.server, url: s.code, lang: 'sub' }));
+            // Latino first, then subtitled
+            const servers = [...latServers, ...subServers];
+
+            const result = { success: true, servers };
+            if (servers.length > 0) setCache(cacheKey, result);
+            return res.json(result);
         }
 
         return res.status(404).json({ success: false, message: 'Endpoint not found' });
