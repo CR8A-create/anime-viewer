@@ -100,9 +100,8 @@ module.exports = async (req, res) => {
 
         // --- VIDEOS ---
         if (action === 'videos') {
-            const path = req.query.path || [];
-            const slug = path[1];
-            const episode = path[2];
+            const slug = req.query.slug || path[1];
+            const episode = req.query.episode || path[2];
             if (!slug || !episode) return res.status(400).json({ success: false, message: 'Slug and episode required' });
 
             const cacheKey = `anime:videos:${slug}:${episode}`;

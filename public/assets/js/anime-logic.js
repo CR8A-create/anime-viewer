@@ -802,7 +802,7 @@ async function fetchVideoLinks(episodeNumber) {
     if (serverList) serverList.innerHTML = '<div class="loading">Obteniendo servidores...</div>';
 
     try {
-        const response = await fetch(`${BACKEND_URL}/anime/videos/${currentSlug}/${episodeNumber}`);
+        const response = await fetch(`${BACKEND_URL}/anime/videos?slug=${encodeURIComponent(currentSlug)}&episode=${episodeNumber}`);
         const data = await response.json();
 
         if (data.success && data.servers.length > 0) {
