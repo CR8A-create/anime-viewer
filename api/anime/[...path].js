@@ -159,6 +159,38 @@ module.exports = async (req, res) => {
                 } catch { continue; }
             }
 
+            // Fallback: search JKAnime by title if slug candidates all failed
+            if (servers.length === 0) {
+                try {
+                    const titleQuery = slug.replace(/-/g, ' ');
+                    const { data: searchData } = await scraperGet(`https://jkanime.net/buscar/?q=${encodeURIComponent(titleQuery)}&id=anime`);
+                    const $s = cheerio.load(searchData);
+                    const firstResult = $s('.anime_box a').first().attr('href') || $s('.card a').first().attr('href');
+                    if (firstResult) {
+                        const jkSlugFromSearch = firstResult.replace(/^\/|\/$/g, '').split('/').pop();
+                        try {
+                            const { data: epData } = await scraperGet(`https://jkanime.net/${jkSlugFromSearch}/${episode}/`);
+                            const $ep = cheerio.load(epData);
+                            const epScripts = $ep('script').map((_, el) => $ep(el).html()).get();
+                            const epSrvScript = epScripts.find(s => s && s.includes('var servers ='));
+                            if (epSrvScript) {
+                                const epMatch = epSrvScript.match(/var servers = (\[[\s\S]*?\]);/);
+                                if (epMatch) {
+                                    const epData2 = JSON.parse(epMatch[1]);
+                                    servers = epData2
+                                        .filter(s => EMBED_OK.includes(s.server))
+                                        .map(s => ({
+                                            name: s.server,
+                                            url: Buffer.from(s.remote, 'base64').toString('utf8'),
+                                            lang: s.lang === 2 ? 'lat' : 'sub',
+                                        }));
+                                }
+                            }
+                        } catch { /* ignore */ }
+                    }
+                } catch { /* ignore */ }
+            }
+
             if (servers.length === 0) {
                 return res.json({ success: false, message: 'No se encontraron servidores para este episodio' });
             }
