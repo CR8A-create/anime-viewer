@@ -40,15 +40,13 @@ module.exports = async (req, res) => {
 
             let servers = [];
             if (lang === 'es') {
-                const imdbId = await getImdbId(tmdbId, 'tv');
                 servers = [
-                    { name: 'MultiEmbed LAT', url: `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&s=${season}&e=${episode}&lang=es` },
-                    { name: 'AutoEmbed LAT', url: `https://player.autoembed.cc/embed/tv/${tmdbId}/${season}/${episode}?lang=spa` },
-                    { name: 'MoviesAPI LAT', url: `https://moviesapi.club/tv/${tmdbId}/${season}/${episode}?lang=es` },
-                    { name: 'Embed.su ES', url: `https://embed.su/embed/tv/${tmdbId}/${season}/${episode}?lang=Spanish` },
-                    { name: 'VidSrc LAT', url: `https://vidsrc.xyz/embed/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}&lang=es` },
+                    { name: 'MultiEmbed ES', url: `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&s=${season}&e=${episode}&lang=es` },
+                    { name: 'VidSrc ES', url: `https://vidsrc.to/embed/tv/${tmdbId}/${season}/${episode}?sub_lang=es` },
+                    { name: '2Embed ES', url: `https://www.2embed.stream/embed/tv?id=${tmdbId}&s=${season}&e=${episode}` },
+                    { name: 'Embed.su ES', url: `https://embed.su/embed/tv/${tmdbId}/${season}/${episode}` },
+                    { name: 'Smashy ES', url: `https://player.smashy.stream/tv/${tmdbId}?s=${season}&e=${episode}&lang=es` },
                 ];
-                if (imdbId) servers.push({ name: 'WarezCDN', url: `https://embed.warezcdn.com/serie/${imdbId}/${season}/${episode}` });
             } else {
                 servers = [
                     { name: 'VidSrc.to', url: `https://vidsrc.to/embed/tv/${tmdbId}/${season}/${episode}` },

@@ -93,25 +93,19 @@ module.exports = async (req, res) => {
             if (cached) return res.json(cached);
             let servers = [];
             if (lang === 'es') {
-                const imdbId = await getImdbId(tmdbId, 'movie');
                 servers = [
-                    { name: 'MultiEmbed LAT', url: `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&lang=es` },
-                    { name: 'AutoEmbed LAT', url: `https://player.autoembed.cc/embed/movie/${tmdbId}?lang=spa` },
-                    { name: 'MoviesAPI LAT', url: `https://moviesapi.club/movie/${tmdbId}?lang=es` },
-                    { name: 'Embed.su ES', url: `https://embed.su/embed/movie/${tmdbId}?lang=Spanish` },
-                    { name: 'VidSrc LAT', url: `https://vidsrc.xyz/embed/movie?tmdb=${tmdbId}&lang=es` },
+                    { name: 'MultiEmbed ES', url: `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&lang=es` },
+                    { name: 'VidSrc ES', url: `https://vidsrc.to/embed/movie/${tmdbId}?sub_lang=es` },
+                    { name: '2Embed ES', url: `https://www.2embed.stream/embed/movie/${tmdbId}` },
+                    { name: 'Embed.su ES', url: `https://embed.su/embed/movie/${tmdbId}` },
+                    { name: 'Smashy ES', url: `https://player.smashy.stream/movie/${tmdbId}?lang=es` },
                 ];
-                if (imdbId) {
-                    servers.push({ name: 'WarezCDN', url: `https://embed.warezcdn.com/filme/${imdbId}` });
-                    servers.push({ name: 'NetMirror', url: `https://netmirror.app/player/${imdbId}` });
-                }
             } else {
                 servers = [
                     { name: 'VidSrc.to', url: `https://vidsrc.to/embed/movie/${tmdbId}` },
                     { name: 'Embed.su', url: `https://embed.su/embed/movie/${tmdbId}` },
+                    { name: '2Embed', url: `https://www.2embed.stream/embed/movie/${tmdbId}` },
                     { name: 'VidSrc PRO', url: `https://vidsrc.pro/embed/movie/${tmdbId}` },
-                    { name: 'VidSrc.in', url: `https://vidsrc.in/embed/movie?tmdb=${tmdbId}` },
-                    { name: 'AutoEmbed', url: `https://player.autoembed.cc/embed/movie/${tmdbId}` },
                     { name: 'VidSrc.xyz', url: `https://vidsrc.xyz/embed/movie?tmdb=${tmdbId}` },
                     { name: 'MultiEmbed', url: `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1` },
                 ];
