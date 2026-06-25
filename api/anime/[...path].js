@@ -98,7 +98,7 @@ module.exports = async (req, res) => {
             return res.json(result);
         }
 
-        // --- VIDEOS ---
+        // --- VIDEOS (via JKAnime) ---
         if (action === 'videos') {
             const slug = req.query.slug || path[1];
             const episode = req.query.episode || path[2];
@@ -108,24 +108,66 @@ module.exports = async (req, res) => {
             const cached = getCache(cacheKey);
             if (cached) return res.json(cached);
 
-            const { data } = await scraperGet(`https://www3.animeflv.net/ver/${slug}-${episode}`);
-            const $ = cheerio.load(data);
-            const scripts = $('script').map((_, el) => $(el).html()).get();
-            const videosScript = scripts.find(s => s && s.includes('var videos ='));
-            if (!videosScript) return res.json({ success: false, message: 'Sin videos disponibles' });
+            // JKAnime slug candidates: try as-is, then strip common AnimeFLV suffixes
+            const slugCandidates = [
+                slug,
+                slug.replace(/-tv$/, ''),
+                slug.replace(/-ova$/, ''),
+                slug.replace(/-movie$/, ''),
+                slug.replace(/-specials?$/, ''),
+                slug.replace(/-(tv|ova|movie|specials?)$/, ''),
+            ].filter((v, i, a) => a.indexOf(v) === i); // deduplicate
 
-            // Use [\s\S] to match across newlines
-            const match = videosScript.match(/var videos = (\{[\s\S]*?\});/);
-            if (!match) return res.json({ success: false, message: 'Error al parsear servidores' });
+            // Embeddable server names we trust (can be used in iframe)
+            const EMBED_OK = ['Streamtape','VOE','Vidhide','Streamwish','Doodstream','Mp4upload','Mixdrop','YourUpload','Uqload'];
 
-            const videosData = JSON.parse(match[1]);
-            const latServers = (videosData.LAT || []).map(s => ({ name: s.server, url: s.code, lang: 'lat' }));
-            const subServers = (videosData.SUB || []).map(s => ({ name: s.server, url: s.code, lang: 'sub' }));
-            // Latino first, then subtitled
-            const servers = [...latServers, ...subServers];
+            let servers = [];
+
+            for (const jkSlug of slugCandidates) {
+                try {
+                    const { data } = await scraperGet(`https://jkanime.net/${jkSlug}/${episode}/`);
+                    const $ = cheerio.load(data);
+
+                    // JKAnime embeds server data as: var servers = [...];
+                    const scripts = $('script').map((_, el) => $(el).html()).get();
+                    const srvScript = scripts.find(s => s && s.includes('var servers ='));
+                    if (!srvScript) continue;
+
+                    const srvMatch = srvScript.match(/var servers = (\[[\s\S]*?\]);/);
+                    if (!srvMatch) continue;
+
+                    const srvData = JSON.parse(srvMatch[1]);
+
+                    // lang: 1 = Sub, 2 = Latino (based on JKAnime convention)
+                    servers = srvData
+                        .filter(s => EMBED_OK.includes(s.server))
+                        .map(s => ({
+                            name: s.server,
+                            url: Buffer.from(s.remote, 'base64').toString('utf8'),
+                            lang: s.lang === 2 ? 'lat' : 'sub',
+                        }));
+
+                    // Also grab the JKAnime player iframes as extra options
+                    const videoMatches = [...srvScript.matchAll(/video\[\d+\]\s*=\s*'<iframe[^>]+src="([^"]+)"/g)];
+                    videoMatches.forEach((m, i) => {
+                        if (!servers.some(s => s.url === m[1])) {
+                            servers.push({ name: `JK Player ${i + 1}`, url: m[1], lang: 'sub' });
+                        }
+                    });
+
+                    if (servers.length > 0) break;
+                } catch { continue; }
+            }
+
+            if (servers.length === 0) {
+                return res.json({ success: false, message: 'No se encontraron servidores para este episodio' });
+            }
+
+            // Latino first
+            servers.sort((a, b) => (a.lang === 'lat' ? -1 : 1) - (b.lang === 'lat' ? -1 : 1));
 
             const result = { success: true, servers };
-            if (servers.length > 0) setCache(cacheKey, result);
+            setCache(cacheKey, result);
             return res.json(result);
         }
 
