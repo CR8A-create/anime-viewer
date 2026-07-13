@@ -3,7 +3,7 @@
   "name": "pagina-ver-anime",
   "functions": {
     "api/**/*.js": {
-      "maxDuration": 10,
+      "maxDuration": 30,
       "memory": 256
     }
   },

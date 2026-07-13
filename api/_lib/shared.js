@@ -35,19 +35,32 @@ function cors(req, res) {
 // IN-MEMORY CACHE (persists across warm invocations ~5min)
 // ============================================================
 const cache = new Map();
-const CACHE_DURATION = 15 * 60 * 1000; // 15 minutes
+const CACHE_DURATION = 15 * 60 * 1000; // 15 minutes (default)
+const STALE_DURATION = 24 * 60 * 60 * 1000; // ventana "stale": servir datos viejos si TODAS las fuentes fallan
 
 function getCache(key) {
     const cached = cache.get(key);
-    if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
+    if (cached && (Date.now() - cached.timestamp) < cached.ttl) {
+        return cached.data;
+    }
+    return null;
+}
+
+/**
+ * Datos expirados pero aún dentro de la ventana stale (24h).
+ * Solo usar como último recurso cuando el scraping falla por completo.
+ */
+function getStale(key) {
+    const cached = cache.get(key);
+    if (cached && (Date.now() - cached.timestamp) < STALE_DURATION) {
         return cached.data;
     }
     cache.delete(key);
     return null;
 }
 
-function setCache(key, data) {
-    cache.set(key, { data, timestamp: Date.now() });
+function setCache(key, data, ttl = CACHE_DURATION) {
+    cache.set(key, { data, timestamp: Date.now(), ttl });
     // Evict oldest entries to prevent memory bloat in serverless
     if (cache.size > 200) {
         const oldest = cache.keys().next().value;
@@ -82,14 +95,16 @@ function getRandomUA() {
 
 /**
  * Axios GET with anti-block headers, rotating UA, and optional proxy support.
+ * `opts.timeout` permite acortar el timeout por petición (útil al sondear
+ * candidatos de slug sin quemar el presupuesto de la función serverless).
  */
-function scraperGet(url, extraHeaders = {}) {
+function scraperGet(url, extraHeaders = {}, opts = {}) {
     const ua = getRandomUA();
     let parsedOrigin;
     try { parsedOrigin = new URL(url).origin; } catch { parsedOrigin = ''; }
 
     const config = {
-        timeout: 8000,
+        timeout: opts.timeout || 8000,
         headers: {
             'User-Agent': ua,
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
@@ -194,7 +209,7 @@ function parseLangBadges($el, $) {
 }
 
 module.exports = {
-    cors, getCache, setCache,
+    cors, getCache, getStale, setCache,
     scraperGet, getRandomUA,
     tmdbGet, getImdbId, TMDB_API_KEY, TMDB_BASE,
     ZONAAPS_BASE, CUEVANA_BASE,

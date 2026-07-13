@@ -33,6 +33,17 @@ app.get('/api/health', (req, res) => {
     res.sendStatus(200);
 });
 
+// ============================================================
+// API DE ANIME — misma lógica multi-fuente que producción (Vercel).
+// Montado ANTES de las rutas legacy de abajo para interceptarlas.
+// La lógica vive en api/_lib/animeSources.js + api/anime/[...path].js
+// ============================================================
+const animeApiHandler = require('./api/anime/[...path].js');
+app.all(['/api/anime/:action', '/api/anime/:action/:p1', '/api/anime/:action/:p1/:p2'], (req, res) => {
+    req.query.path = [req.params.action, req.params.p1, req.params.p2].filter(Boolean);
+    return animeApiHandler(req, res);
+});
+
 // Simple in-memory cache
 const cache = new Map();
 const CACHE_DURATION = 15 * 60 * 1000; // 15 minutes (anime data barely changes)

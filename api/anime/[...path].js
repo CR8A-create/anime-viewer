@@ -1,13 +1,44 @@
-const { cors, getCache, setCache, scraperGet, createSlug } = require('../_lib/shared');
-const cheerio = require('cheerio');
+// ============================================================
+// API DE ANIME — handler serverless (Vercel) y también montado
+// por server.js para desarrollo local.
+//
+// Endpoints (shapes 100% compatibles con el frontend actual):
+//   GET /api/anime/airing                     → { success, data:[...], source }
+//   GET /api/anime/recent                     → { success, data:[...], source }
+//   GET /api/anime/info?title=...             → { success, slug, description, genres, status, rate, episodes, source }
+//   GET /api/anime/videos?slug=...&episode=N  → { success, servers:[{name,url,lang}], source }
+//   GET /api/anime/status                     → estado en vivo de todas las fuentes
+//
+// El scraping en sí vive en api/_lib/animeSources.js (multi-fuente
+// con fallback automático). Para arreglar un selector roto, edita
+// ese archivo — este no debería necesitar cambios.
+// ============================================================
+const { cors, getCache, getStale, setCache } = require('../_lib/shared');
+const { scrapeWithFallback, checkSourcesStatus } = require('../_lib/animeSources');
 
-async function searchAnimeFLV(query) {
+const TTL = {
+    airing: 30 * 60 * 1000,
+    recent: 10 * 60 * 1000,
+    info: 30 * 60 * 1000,
+    videos: 15 * 60 * 1000,
+};
+
+/**
+ * Ejecuta el scraping con fallback; si TODAS las fuentes fallan,
+ * sirve la última respuesta buena (hasta 24h) marcada como stale.
+ */
+async function withStaleFallback(cacheKey, capability, ...args) {
     try {
-        const { data } = await scraperGet(`https://www3.animeflv.net/browse?q=${encodeURIComponent(query)}`);
-        const $ = cheerio.load(data);
-        const href = $('.ListAnimes li article a').first().attr('href');
-        return href ? `https://www3.animeflv.net${href}` : null;
-    } catch { return null; }
+        const { data, source } = await scrapeWithFallback(capability, ...args);
+        return { data, source, stale: false };
+    } catch (e) {
+        const stale = getStale(cacheKey);
+        if (stale) {
+            console.warn(`[anime] Todas las fuentes fallaron para ${cacheKey}; sirviendo copia stale. Detalle: ${e.message}`);
+            return { data: null, staleResponse: { ...stale, stale: true }, stale: true };
+        }
+        throw e;
+    }
 }
 
 module.exports = async (req, res) => {
@@ -23,18 +54,11 @@ module.exports = async (req, res) => {
             const cached = getCache(cacheKey);
             if (cached) return res.json(cached);
 
-            const { data } = await scraperGet('https://www3.animeflv.net/browse?status=1&order=rating');
-            const $ = cheerio.load(data);
-            const items = [];
-            $('.ListAnimes li article').slice(0, 24).each((_, el) => {
-                const title = $(el).find('.Title').text().trim();
-                const image = $(el).find('img').attr('src');
-                const slug = $(el).find('a').attr('href').split('/').pop();
-                const synopsis = $(el).find('.Description p').text().trim().replace(/^Anime\s+\d+(\.\d+)?\s*/i, '') || 'Mira este anime en español.';
-                items.push({ mal_id: slug, title, images: { jpg: { large_image_url: image, image_url: image } }, synopsis, score: $(el).find('.Vts').text().trim() || 'N/A' });
-            });
-            const result = { success: true, data: items };
-            setCache(cacheKey, result);
+            const r = await withStaleFallback(cacheKey, 'airing');
+            if (r.stale) return res.json(r.staleResponse);
+
+            const result = { success: true, data: r.data, source: r.source };
+            setCache(cacheKey, result, TTL.airing);
             return res.json(result);
         }
 
@@ -44,18 +68,11 @@ module.exports = async (req, res) => {
             const cached = getCache(cacheKey);
             if (cached) return res.json(cached);
 
-            const { data } = await scraperGet('https://www3.animeflv.net/');
-            const $ = cheerio.load(data);
-            const items = [];
-            $('.ListEpisodios li').each((_, el) => {
-                const title = $(el).find('.Title').text().trim();
-                const epNum = $(el).find('.Capi').text().trim().replace(/Episodio\s*/i, '').trim();
-                const image = 'https://www3.animeflv.net' + $(el).find('img').attr('src');
-                const slug = $(el).find('a').attr('href').split('/ver/')[1].split('-').slice(0, -1).join('-');
-                items.push({ entry: { mal_id: slug, title, images: { jpg: { image_url: image } } }, episodes: [{ title: `Episodio ${epNum}` }] });
-            });
-            const result = { success: true, data: items };
-            setCache(cacheKey, result);
+            const r = await withStaleFallback(cacheKey, 'recent');
+            if (r.stale) return res.json(r.staleResponse);
+
+            const result = { success: true, data: r.data, source: r.source };
+            setCache(cacheKey, result, TTL.recent);
             return res.json(result);
         }
 
@@ -63,42 +80,25 @@ module.exports = async (req, res) => {
         if (action === 'info') {
             const title = req.query.title || path[1] || '';
             if (!title) return res.status(400).json({ success: false, message: 'Title required' });
-            const cacheKey = `anime:info:${title}`;
+            const cacheKey = `anime:info:${title.toLowerCase()}`;
             const cached = getCache(cacheKey);
             if (cached) return res.json(cached);
 
-            let slug = createSlug(title);
-            let url = `https://www3.animeflv.net/anime/${slug}`;
-            let html;
+            let r;
             try {
-                const { data } = await scraperGet(url);
-                html = data;
-            } catch {
-                const fallbackUrl = await searchAnimeFLV(title);
-                if (!fallbackUrl) return res.json({ success: false, message: 'Anime no encontrado' });
-                url = fallbackUrl;
-                slug = fallbackUrl.split('/').pop();
-                const { data } = await scraperGet(url);
-                html = data;
+                r = await withStaleFallback(cacheKey, 'info', title);
+            } catch (e) {
+                console.warn(`[anime] info "${title}" sin resultados: ${e.message}`);
+                return res.json({ success: false, message: 'Anime no encontrado en ninguna fuente. Intenta con otro título.' });
             }
+            if (r.stale) return res.json(r.staleResponse);
 
-            const $ = cheerio.load(html);
-            const scripts = $('script').map((i, el) => $(el).html()).get();
-            const episodesScript = scripts.find(s => s && s.includes('var episodes ='));
-            if (!episodesScript) return res.json({ success: false, message: 'Sin episodios' });
-            
-            const rawEps = JSON.parse(episodesScript.match(/var episodes = (\[.*?\]);/)[1]);
-            const episodes = rawEps.map(ep => ({ number: ep[0], id: ep[1] })).sort((a, b) => b.number - a.number);
-            
-            let description = $('.Description p').text().trim() || $('.Description').text().trim() || '';
-            let genres = $('.Genres a, .Nvgnrs a').map((i, el) => $(el).text()).get();
-
-            const result = { success: true, slug, description, genres, status: $('.AnmStts').text().trim(), rate: $('.vtprmd').text().trim(), episodes };
-            setCache(cacheKey, result);
+            const result = { success: true, source: r.source, ...r.data };
+            setCache(cacheKey, result, TTL.info);
             return res.json(result);
         }
 
-        // --- VIDEOS (TioAnime primary + JKAnime fallback) ---
+        // --- VIDEOS ---
         if (action === 'videos') {
             const slug = req.query.slug || path[1];
             const episode = req.query.episode || path[2];
@@ -108,69 +108,44 @@ module.exports = async (req, res) => {
             const cached = getCache(cacheKey);
             if (cached) return res.json(cached);
 
-            let servers = [];
-
-            // --- PRIMARY: TioAnime (same slug format as AnimeFLV, var videos in HTML) ---
+            let r;
             try {
-                const { data } = await scraperGet(`https://tioanime.com/ver/${slug}-${episode}`);
-                const $ = cheerio.load(data);
-                const scripts = $('script').map((_, el) => $(el).html()).get();
-                const videoScript = scripts.find(s => s && s.includes('var videos ='));
-                if (videoScript) {
-                    const match = videoScript.match(/var videos = (\[[\s\S]*?\]);/);
-                    if (match) {
-                        const videoData = JSON.parse(match[1]);
-                        // format: [name, url, flag1, flag2] — TioAnime is sub-only
-                        servers = videoData
-                            .filter(([, url]) => url && !url.includes('mega.nz') && !url.includes('mail.ru'))
-                            .map(([name, url]) => ({ name, url, lang: 'sub' }));
-                    }
-                }
-            } catch { /* ignore */ }
-
-            // --- FALLBACK: JKAnime (has Latino dubs) ---
-            if (servers.length === 0) {
-                const EMBED_OK = ['Streamtape','VOE','Vidhide','Streamwish','Doodstream','Mp4upload','Mixdrop','YourUpload','Uqload'];
-                const slugCandidates = [
-                    slug,
-                    slug.replace(/-tv$/, ''),
-                    slug.replace(/-ova$/, ''),
-                    slug.replace(/-movie$/, ''),
-                    slug.replace(/-(tv|ova|movie|specials?)$/, ''),
-                ].filter((v, i, a) => a.indexOf(v) === i);
-
-                for (const jkSlug of slugCandidates) {
-                    try {
-                        const { data } = await scraperGet(`https://jkanime.net/${jkSlug}/${episode}/`);
-                        const $ = cheerio.load(data);
-                        const scripts = $('script').map((_, el) => $(el).html()).get();
-                        const srvScript = scripts.find(s => s && s.includes('var servers ='));
-                        if (!srvScript) continue;
-                        const srvMatch = srvScript.match(/var servers = (\[[\s\S]*?\]);/);
-                        if (!srvMatch) continue;
-                        const srvData = JSON.parse(srvMatch[1]);
-                        const jkServers = srvData
-                            .filter(s => EMBED_OK.includes(s.server))
-                            .map(s => ({
-                                name: s.server,
-                                url: Buffer.from(s.remote, 'base64').toString('utf8'),
-                                lang: s.lang === 2 ? 'lat' : 'sub',
-                            }));
-                        if (jkServers.length > 0) { servers = jkServers; break; }
-                    } catch { continue; }
-                }
+                r = await withStaleFallback(cacheKey, 'videos', slug, episode);
+            } catch (e) {
+                console.warn(`[anime] videos ${slug}-${episode}: ${e.message}`);
+                return res.json({ success: false, message: 'No se encontraron servidores para este episodio en ninguna fuente.' });
             }
+            if (r.stale) return res.json(r.staleResponse);
 
-            if (servers.length === 0) {
-                return res.json({ success: false, message: 'No se encontraron servidores para este episodio' });
-            }
-
-            // Latino first
+            const servers = r.data;
+            // Latino primero (comportamiento existente)
             servers.sort((a, b) => (a.lang === 'lat' ? -1 : 1) - (b.lang === 'lat' ? -1 : 1));
 
-            const result = { success: true, servers };
-            setCache(cacheKey, result);
+            const result = { success: true, servers, source: r.source };
+            setCache(cacheKey, result, TTL.videos);
             return res.json(result);
+        }
+
+        // --- STATUS (monitoreo de fuentes) ---
+        if (action === 'status') {
+            const cacheKey = 'anime:status';
+            const cached = getCache(cacheKey);
+            if (cached) return res.json(cached);
+
+            const sources = await checkSourcesStatus();
+            const result = {
+                success: true,
+                checkedAt: new Date().toISOString(),
+                allDown: sources.every(s => !s.alive),
+                sources,
+            };
+            setCache(cacheKey, result, 60 * 1000); // 1 min: es un chequeo en vivo
+            return res.json(result);
+        }
+
+        // --- HEALTH (ping barato, sin scraping) ---
+        if (action === 'health') {
+            return res.json({ success: true, ok: true });
         }
 
         return res.status(404).json({ success: false, message: 'Endpoint not found' });
