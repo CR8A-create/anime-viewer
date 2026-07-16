@@ -4,6 +4,8 @@
     /* Purple-600 */
     --primary-hover: #7c3aed;
     /* Purple-700 */
+    --primary-rgb: 147, 51, 234;
+    /* Para el botón play del hover de las cards */
     --bg-dark: #0f0a1a;
     /* Deep purple dark */
     --bg-card: #1a1233;
