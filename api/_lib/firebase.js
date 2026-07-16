@@ -50,12 +50,15 @@ const memoryComments = new Map();
  */
 async function getComments(contentId) {
     if (useFirestore) {
+        // Sin orderBy en la query: where+orderBy exigiría crear un índice
+        // compuesto a mano en la consola. Ordenamos en JS (son ≤100 docs).
         const snapshot = await db.collection('comments')
             .where('contentId', '==', contentId)
-            .orderBy('timestamp', 'asc')
             .limit(100)
             .get();
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        return snapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
     }
     return memoryComments.get(contentId) || [];
 }
