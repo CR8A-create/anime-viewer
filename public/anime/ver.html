@@ -64,6 +64,141 @@
             margin: 0 auto;
             padding: 20px 20px 60px;
         }
+        /* Dos columnas en escritorio: player + lista de episodios al lado */
+        .player-layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 330px;
+            gap: 24px;
+            align-items: start;
+        }
+        @media (max-width: 960px) {
+            .player-layout { grid-template-columns: 1fr; }
+        }
+
+        /* ── LISTA LATERAL DE EPISODIOS (estilo animeflv.ar) ── */
+        .ep-sidebar {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+            position: sticky;
+            top: 76px;
+        }
+        @media (max-width: 960px) { .ep-sidebar { position: static; } }
+        .ep-sidebar-head {
+            padding: 12px 14px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text2);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .ep-sidebar-head i { color: var(--accent); margin-right: 6px; }
+        .ep-sidebar-count { color: var(--text3); font-weight: 500; letter-spacing: 0; text-transform: none; }
+        .ep-sidebar-list {
+            max-height: 560px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: var(--border) transparent;
+        }
+        @media (max-width: 960px) { .ep-sidebar-list { max-height: 420px; } }
+        .ep-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 9px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            transition: background 0.15s;
+        }
+        .ep-row:hover { background: var(--bg3); }
+        .ep-row.active {
+            background: rgba(244, 117, 33, 0.12);
+            border-left: 3px solid var(--accent);
+            padding-left: 9px;
+        }
+        .ep-row-thumb {
+            flex-shrink: 0;
+            width: 92px;
+            aspect-ratio: 16 / 10;
+            border-radius: 6px;
+            overflow: hidden;
+            background: var(--bg3);
+            position: relative;
+        }
+        .ep-row-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .ep-row-thumb .thumb-play {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 0.8rem;
+            background: rgba(0, 0, 0, 0.35);
+            opacity: 0;
+            transition: opacity 0.15s;
+        }
+        .ep-row:hover .thumb-play { opacity: 1; }
+        .ep-row.active .thumb-play { opacity: 1; background: rgba(244, 117, 33, 0.45); }
+        .ep-row-info { min-width: 0; }
+        .ep-row-info .ep-row-num { font-size: 0.85rem; font-weight: 700; color: var(--text); }
+        .ep-row.active .ep-row-num { color: var(--accent2); }
+        .ep-row-info .ep-row-name {
+            font-size: 0.75rem;
+            color: var(--text3);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .ep-row-badge {
+            margin-left: auto;
+            flex-shrink: 0;
+            font-size: 0.62rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            color: var(--on-accent);
+            background: var(--accent);
+            border-radius: 3px;
+            padding: 2px 6px;
+        }
+        .ep-row .seen-check { display: none; margin-left: auto; flex-shrink: 0; color: #4caf7d; font-size: 0.75rem; }
+        .ep-row.seen .seen-check { display: inline; }
+        .ep-row.seen .ep-row-num { color: var(--text2); }
+        .ep-jump {
+            display: flex;
+            gap: 6px;
+            padding: 10px 12px;
+            border-top: 1px solid var(--border);
+        }
+        .ep-jump input {
+            flex: 1;
+            min-width: 0;
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: 6px;
+            padding: 7px 10px;
+            font-family: inherit;
+            font-size: 0.8rem;
+            outline: none;
+        }
+        .ep-jump input:focus { border-color: var(--accent); }
+        .ep-jump button {
+            background: var(--accent);
+            border: none;
+            color: var(--on-accent);
+            border-radius: 6px;
+            padding: 7px 14px;
+            font-family: inherit;
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
 
         /* ── TOP BAR ── */
         .top-bar {
@@ -386,6 +521,8 @@
     </header>
 
     <main class="player-page">
+      <div class="player-layout">
+       <div class="player-main">
 
         <!-- Top bar: back + episode title -->
         <div class="top-bar">
@@ -436,16 +573,6 @@
 
         <hr class="divider">
 
-        <!-- Episodes -->
-        <div class="episodes-container">
-            <div class="section-heading"><i class="fas fa-list-ol"></i> &nbsp;Episodios</div>
-            <div class="episodes-list" id="episodesList">
-                <div class="loading">Cargando episodios...</div>
-            </div>
-        </div>
-
-        <hr class="divider">
-
         <!-- Anime info -->
         <div class="anime-info-detailed" id="animeInfoDetailed">
             <div class="loading">Cargando información...</div>
@@ -476,6 +603,24 @@
             </div>
         </div>
 
+       </div><!-- /.player-main -->
+
+       <!-- Lista lateral de episodios (estilo animeflv.ar) -->
+       <aside class="ep-sidebar">
+            <div class="ep-sidebar-head">
+                <span><i class="fas fa-list-ol"></i> Lista de episodios</span>
+                <span class="ep-sidebar-count" id="epSidebarCount"></span>
+            </div>
+            <div class="ep-sidebar-list" id="episodesList">
+                <div class="loading" style="padding:16px 14px">Cargando episodios...</div>
+            </div>
+            <div class="ep-jump">
+                <input type="number" id="epJumpInput" placeholder="Ir al episodio…" min="1">
+                <button onclick="jumpToEpisode()">Ir</button>
+            </div>
+       </aside>
+
+      </div><!-- /.player-layout -->
     </main>
 
     <footer>
@@ -487,7 +632,8 @@
         </p>
     </footer>
 
-    <script src="../assets/js/anime-logic.js?v=3"></script>
+    <script src="../assets/js/mi-lista.js?v=1"></script>
+    <script src="../assets/js/anime-logic.js?v=4"></script>
     <script>
         // ── Volver a la ficha del anime ───────────────────────────
         function goBackToDetail() {
@@ -557,24 +703,95 @@
             if (servers.length > 0) changeServer(servers[0].name, servers[0].url);
         }
 
-        // ── Episode active highlight ──────────────────────────────
-        const _origFetchVideoLinks = window.fetchVideoLinks;
-        // Highlight active episode button
-        const _origRenderEpisodeChunk = window.renderEpisodeChunk;
-        if (_origRenderEpisodeChunk) {
-            window.renderEpisodeChunk = function(chunk) {
-                _origRenderEpisodeChunk(chunk);
-                highlightActiveEp();
-            };
+        // ── LISTA LATERAL DE EPISODIOS (estilo animeflv.ar) ───────
+        let _sidebarEpisodes = [];
+
+        // Reemplaza el render de cuadrícula de anime-logic.js por la lista lateral
+        window.renderEpisodes = function(episodes) {
+            _sidebarEpisodes = episodes;
+            const list = document.getElementById('episodesList');
+            const info = window.currentAnimeInfo || {};
+            const animeName = info.title || new URLSearchParams(location.search).get('title') || '';
+            const thumb = info.image || '';
+            const latest = episodes[0] && episodes[0].number;
+            document.getElementById('epSidebarCount').textContent = `${episodes.length} eps`;
+            const jump = document.getElementById('epJumpInput');
+            if (jump && latest) jump.max = latest;
+
+            list.innerHTML = '';
+            const frag = document.createDocumentFragment();
+            const listKey = MiLista.keyOf(new URLSearchParams(location.search).get('title') || '');
+            episodes.forEach(ep => {
+                const row = document.createElement('div');
+                row.className = 'ep-row' + (MiLista.isWatched(listKey, ep.number) ? ' seen' : '');
+                row.dataset.ep = ep.number;
+                row.onclick = () => fetchVideoLinks(ep.number);
+                row.innerHTML = `
+                    <div class="ep-row-thumb">
+                        ${thumb ? `<img src="${thumb}" alt="" loading="lazy">` : ''}
+                        <div class="thumb-play"><i class="fas fa-play"></i></div>
+                    </div>
+                    <div class="ep-row-info">
+                        <div class="ep-row-num">Episodio ${ep.number}</div>
+                        <div class="ep-row-name">${animeName} · Sub Español</div>
+                    </div>
+                    ${ep.number === latest ? '<span class="ep-row-badge">Nuevo</span>' : ''}
+                    <span class="seen-check" title="Visto"><i class="fas fa-check-circle"></i></span>`;
+                frag.appendChild(row);
+            });
+            list.appendChild(frag);
+            markActiveEpisode(window._pendingActiveEp);
+        };
+
+        function markActiveEpisode(n) {
+            if (n == null) return;
+            window._pendingActiveEp = n;
+            const list = document.getElementById('episodesList');
+            let activeRow = null;
+            list.querySelectorAll('.ep-row').forEach(row => {
+                const is = row.dataset.ep == n;
+                row.classList.toggle('active', is);
+                if (is) activeRow = row;
+            });
+            if (activeRow) {
+                activeRow.scrollIntoView({ block: 'center', behavior: 'auto' });
+            }
         }
 
-        function highlightActiveEp() {
-            if (!window.currentEpisodeNumber) return;
-            document.querySelectorAll('.episode-btn').forEach(btn => {
-                const ep = btn.getAttribute('data-ep');
-                btn.classList.toggle('active', ep == window.currentEpisodeNumber);
-            });
+        // Cada cambio de episodio: resalta la fila, marca VISTO y guarda historial
+        const _origFetchVideoLinks = window.fetchVideoLinks;
+        window.fetchVideoLinks = function(n) {
+            window._pendingActiveEp = n;
+            markActiveEpisode(n);
+            try {
+                const p = new URLSearchParams(location.search);
+                const t = p.get('title') || p.get('id') || '';
+                const key = MiLista.keyOf(t);
+                MiLista.markWatched(key, n);
+                const row = document.querySelector(`.ep-row[data-ep="${n}"]`);
+                if (row) row.classList.add('seen');
+                const info = window.currentAnimeInfo || {};
+                MiLista.pushHistory({
+                    key,
+                    title: info.title || t,
+                    image: info.image || '',
+                    label: `Episodio ${n}`,
+                    url: `ver.html?id=${encodeURIComponent(p.get('id') || t)}&title=${encodeURIComponent(t)}&ep=${n}`,
+                });
+            } catch { /* localStorage no disponible */ }
+            return _origFetchVideoLinks(n);
+        };
+
+        function jumpToEpisode() {
+            const val = parseInt(document.getElementById('epJumpInput').value, 10);
+            if (!val) return;
+            if (_sidebarEpisodes.some(e => e.number === val)) {
+                fetchVideoLinks(val);
+            }
         }
+        document.getElementById('epJumpInput').addEventListener('keydown', e => {
+            if (e.key === 'Enter') jumpToEpisode();
+        });
 
         // ── Comments ──────────────────────────────────────────────
         function getAnimeContentId() {

@@ -91,22 +91,26 @@ module.exports = async (req, res) => {
             const cacheKey = `movies:servers:${tmdbId}:${lang}`;
             const cached = getCache(cacheKey);
             if (cached) return res.json(cached);
+            // Julio 2026: se retiraron los proveedores muertos (embed.su,
+            // vidsrc.xyz/pro, smashy con TLS roto) y 2embed (bloquea iframes).
             let servers = [];
             if (lang === 'es') {
-                servers = [
+                // Embed69 tiene audio LATINO/CASTELLANO real (por IMDb id) y
+                // muestra su propio selector de idioma dentro del player.
+                const imdbId = await getImdbId(tmdbId, 'movie');
+                if (imdbId) {
+                    servers.push({ name: 'Embed69 Latino', url: `https://embed69.org/f/${imdbId}` });
+                }
+                servers.push(
+                    { name: 'VidFast ES', url: `https://vidfast.pro/movie/${tmdbId}` },
+                    { name: 'VidLink', url: `https://vidlink.pro/movie/${tmdbId}` },
                     { name: 'MultiEmbed ES', url: `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&lang=es` },
-                    { name: 'VidSrc ES', url: `https://vidsrc.to/embed/movie/${tmdbId}?sub_lang=es` },
-                    { name: '2Embed ES', url: `https://www.2embed.stream/embed/movie/${tmdbId}` },
-                    { name: 'Embed.su ES', url: `https://embed.su/embed/movie/${tmdbId}` },
-                    { name: 'Smashy ES', url: `https://player.smashy.stream/movie/${tmdbId}?lang=es` },
-                ];
+                );
             } else {
                 servers = [
                     { name: 'VidSrc.to', url: `https://vidsrc.to/embed/movie/${tmdbId}` },
-                    { name: 'Embed.su', url: `https://embed.su/embed/movie/${tmdbId}` },
-                    { name: '2Embed', url: `https://www.2embed.stream/embed/movie/${tmdbId}` },
-                    { name: 'VidSrc PRO', url: `https://vidsrc.pro/embed/movie/${tmdbId}` },
-                    { name: 'VidSrc.xyz', url: `https://vidsrc.xyz/embed/movie?tmdb=${tmdbId}` },
+                    { name: 'VidLink', url: `https://vidlink.pro/movie/${tmdbId}` },
+                    { name: 'VidFast', url: `https://vidfast.pro/movie/${tmdbId}` },
                     { name: 'MultiEmbed', url: `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1` },
                 ];
             }

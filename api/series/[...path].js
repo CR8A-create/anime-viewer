@@ -38,28 +38,53 @@ module.exports = async (req, res) => {
             const cached = getCache(cacheKey);
             if (cached) return res.json(cached);
 
+            // Julio 2026: retirados los proveedores muertos (embed.su,
+            // vidsrc.xyz/pro/in, smashy con TLS roto) y 2embed (bloquea iframes).
+            // VidFast/VidLink tienen selector de servidores con doblajes.
             let servers = [];
             if (lang === 'es') {
                 servers = [
+                    { name: 'VidFast ES', url: `https://vidfast.pro/tv/${tmdbId}/${season}/${episode}` },
+                    { name: 'VidLink', url: `https://vidlink.pro/tv/${tmdbId}/${season}/${episode}` },
                     { name: 'MultiEmbed ES', url: `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&s=${season}&e=${episode}&lang=es` },
                     { name: 'VidSrc ES', url: `https://vidsrc.to/embed/tv/${tmdbId}/${season}/${episode}?sub_lang=es` },
-                    { name: '2Embed ES', url: `https://www.2embed.stream/embed/tv?id=${tmdbId}&s=${season}&e=${episode}` },
-                    { name: 'Embed.su ES', url: `https://embed.su/embed/tv/${tmdbId}/${season}/${episode}` },
-                    { name: 'Smashy ES', url: `https://player.smashy.stream/tv/${tmdbId}?s=${season}&e=${episode}&lang=es` },
                 ];
             } else {
                 servers = [
                     { name: 'VidSrc.to', url: `https://vidsrc.to/embed/tv/${tmdbId}/${season}/${episode}` },
-                    { name: 'Embed.su', url: `https://embed.su/embed/tv/${tmdbId}/${season}/${episode}` },
-                    { name: 'VidSrc PRO', url: `https://vidsrc.pro/embed/tv/${tmdbId}/${season}/${episode}` },
-                    { name: 'VidSrc.in', url: `https://vidsrc.in/embed/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}` },
+                    { name: 'VidLink', url: `https://vidlink.pro/tv/${tmdbId}/${season}/${episode}` },
+                    { name: 'VidFast', url: `https://vidfast.pro/tv/${tmdbId}/${season}/${episode}` },
                     { name: 'AutoEmbed', url: `https://player.autoembed.cc/embed/tv/${tmdbId}/${season}/${episode}` },
-                    { name: 'VidSrc.xyz', url: `https://vidsrc.xyz/embed/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}` },
                     { name: 'MultiEmbed', url: `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&s=${season}&e=${episode}` },
                 ];
             }
             setCache(cacheKey, { success: true, servers, lang });
             return res.json({ success: true, servers, lang });
+        }
+
+        if (action === 'season') {
+            // Todos los episodios de una temporada (nombre, sinopsis y miniatura)
+            const tmdbId = req.query.id || path[1];
+            const season = req.query.season || path[2];
+            if (!tmdbId || !season) return res.status(400).json({ success: false, message: 'tmdbId and season required' });
+
+            const cacheKey = `series:season:${tmdbId}:${season}`;
+            const cached = getCache(cacheKey);
+            if (cached) return res.json(cached);
+
+            const { data } = await tmdbGet(`/tv/${tmdbId}/season/${season}`);
+            const result = {
+                success: true,
+                episodes: (data.episodes || []).map(ep => ({
+                    episode_number: ep.episode_number,
+                    name: ep.name,
+                    overview: ep.overview,
+                    still: ep.still_path ? `https://image.tmdb.org/t/p/w300${ep.still_path}` : null,
+                    air_date: ep.air_date,
+                })),
+            };
+            setCache(cacheKey, result);
+            return res.json(result);
         }
 
         if (action === 'episode') {

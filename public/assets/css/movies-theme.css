@@ -6,9 +6,9 @@
     /* Purple-700 */
     --primary-rgb: 147, 51, 234;
     /* Para el botón play del hover de las cards */
-    --bg-dark: #0f0a1a;
-    /* Deep purple dark */
-    --bg-card: #1a1233;
+    --bg-dark: #0c0913;
+    /* Carbón con tinte morado (a juego con detalle.html) */
+    --bg-card: #151020;
     /* Dark purple card */
     --neon-purple: #c084fc;
     /* Light purple */

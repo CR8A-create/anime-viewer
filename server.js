@@ -44,6 +44,19 @@ app.all(['/api/anime/:action', '/api/anime/:action/:p1', '/api/anime/:action/:p1
     return animeApiHandler(req, res);
 });
 
+// Películas y series: mismos handlers serverless que producción (Vercel).
+// Montados ANTES de las rutas legacy de abajo para interceptarlas.
+const moviesApiHandler = require('./api/movies/[...path].js');
+const seriesApiHandler = require('./api/series/[...path].js');
+app.all(['/api/movies/:action', '/api/movies/:action/:p1', '/api/movies/:action/:p1/:p2', '/api/movies/:action/:p1/:p2/:p3'], (req, res) => {
+    req.query.path = [req.params.action, req.params.p1, req.params.p2, req.params.p3].filter(Boolean);
+    return moviesApiHandler(req, res);
+});
+app.all(['/api/series/:action', '/api/series/:action/:p1', '/api/series/:action/:p1/:p2', '/api/series/:action/:p1/:p2/:p3', '/api/series/:action/:p1/:p2/:p3/:p4'], (req, res) => {
+    req.query.path = [req.params.action, req.params.p1, req.params.p2, req.params.p3, req.params.p4].filter(Boolean);
+    return seriesApiHandler(req, res);
+});
+
 // Simple in-memory cache
 const cache = new Map();
 const CACHE_DURATION = 15 * 60 * 1000; // 15 minutes (anime data barely changes)

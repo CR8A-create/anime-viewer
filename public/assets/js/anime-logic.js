@@ -731,6 +731,9 @@ async function initializePlayer(anime) {
         const data = await response.json();
 
         if (data.success) {
+            // Exponer la info al script de la página (miniaturas de la lista lateral, etc.)
+            window.currentAnimeInfo = data;
+
             if (data.description || data.genres) {
                 detailsHtml = `
                     <h2>${anime.title}</h2>

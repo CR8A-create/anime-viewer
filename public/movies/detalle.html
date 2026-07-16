@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detalle - AniNova Movies</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            /* Tema morado de Movies, modernizado */
+            --accent: #9333ea;
+            --accent2: #c084fc;
+            --on-accent: #ffffff;
+            --bg: #0c0913;
+            --bg2: #151020;
+            --bg3: #1d1530;
+            --border: #2a2140;
+            --text: #f1f1f3;
+            --text2: #a49fb3;
+            --text3: #6d6880;
+        }
+
+        body { background: var(--bg); color: var(--text); font-family: 'Outfit', sans-serif; min-height: 100vh; }
+
+        header {
+            background: rgba(21, 16, 32, 0.97);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            padding: 0 24px;
+            position: sticky; top: 0; z-index: 100;
+            height: 60px; display: flex; align-items: center;
+        }
+        .header-inner { max-width: 1200px; margin: 0 auto; width: 100%; display: flex; align-items: center; justify-content: space-between; }
+        .logo a { text-decoration: none; }
+        .logo h1 { font-size: 1.4rem; font-weight: 700; color: #fff; }
+        .logo .highlight { color: var(--accent2); }
+        nav ul { list-style: none; display: flex; gap: 24px; }
+        nav ul li a { text-decoration: none; color: var(--text2); font-size: 0.875rem; font-weight: 500; }
+        nav ul li a:hover { color: #fff; }
+
+        .detail-hero { position: relative; overflow: hidden; border-bottom: 1px solid var(--border); }
+        .hero-backdrop {
+            position: absolute; inset: 0;
+            background-size: cover; background-position: center 20%;
+            filter: blur(24px) brightness(0.3) saturate(1.2);
+            transform: scale(1.12);
+        }
+        .hero-inner {
+            position: relative; z-index: 1;
+            max-width: 1200px; margin: 0 auto;
+            padding: 40px 24px;
+            display: flex; gap: 32px; align-items: flex-start;
+        }
+        .poster {
+            flex-shrink: 0; width: 220px; aspect-ratio: 2 / 3;
+            border-radius: 10px; overflow: hidden;
+            background: var(--bg3);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7);
+        }
+        .poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .hero-info { flex: 1; min-width: 0; padding-top: 6px; }
+        .hero-info h2 { font-size: 2.2rem; font-weight: 800; line-height: 1.15; margin-bottom: 12px; }
+        .meta-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 14px; }
+        .status-chip {
+            background: var(--accent); color: var(--on-accent);
+            font-size: 0.72rem; font-weight: 800; text-transform: uppercase;
+            letter-spacing: 0.5px; padding: 3px 10px; border-radius: 3px;
+        }
+        .meta-item { color: var(--text2); font-size: 0.85rem; display: flex; align-items: center; gap: 6px; }
+        .meta-item i { color: var(--accent2); font-size: 0.8rem; }
+        .genre-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+        .genre-chip {
+            border: 1px solid rgba(147, 51, 234, 0.55);
+            color: var(--accent2); background: rgba(147, 51, 234, 0.1);
+            font-size: 0.75rem; font-weight: 600; padding: 3px 12px; border-radius: 20px;
+        }
+        .synopsis {
+            color: var(--text2); font-size: 0.92rem; line-height: 1.7;
+            max-width: 720px; margin-bottom: 22px;
+            display: -webkit-box; -webkit-line-clamp: 5; line-clamp: 5;
+            -webkit-box-orient: vertical; overflow: hidden;
+        }
+        .synopsis.expanded { -webkit-line-clamp: unset; line-clamp: unset; }
+        .synopsis-toggle {
+            background: none; border: none; color: var(--accent2);
+            font-family: inherit; font-size: 0.82rem; font-weight: 700;
+            cursor: pointer; padding: 0; margin: -14px 0 20px;
+        }
+        .cta-row { display: flex; flex-wrap: wrap; gap: 12px; }
+        .btn-watch {
+            background: var(--accent); color: var(--on-accent);
+            border: none; padding: 13px 30px; border-radius: 6px;
+            font-family: inherit; font-size: 0.9rem; font-weight: 800;
+            text-transform: uppercase; letter-spacing: 1px; cursor: pointer;
+            display: inline-flex; align-items: center; gap: 10px;
+            transition: all 0.2s;
+        }
+        .btn-watch:hover { background: #a855f7; transform: translateY(-2px); }
+        .btn-watch.secondary { background: transparent; color: var(--accent2); border: 2px solid var(--accent); }
+        .btn-watch.secondary:hover { background: rgba(147, 51, 234, 0.15); }
+
+        /* Episodios (series) */
+        .episodes-section { max-width: 1200px; margin: 0 auto; padding: 32px 24px 70px; }
+        .section-heading { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 18px; flex-wrap: wrap; }
+        .section-heading h3 {
+            font-size: 1rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 1px; border-left: 4px solid var(--accent); padding-left: 12px;
+        }
+        #seasonSelect {
+            background: var(--bg3); color: var(--text);
+            border: 1px solid var(--border); border-radius: 6px;
+            padding: 8px 14px; font-family: inherit; font-size: 0.85rem;
+            cursor: pointer; outline: none;
+        }
+        #seasonSelect:focus { border-color: var(--accent); }
+        .episodes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 14px; }
+        .ep-card {
+            background: var(--bg2); border: 1px solid var(--border);
+            border-radius: 10px; overflow: hidden; cursor: pointer;
+            transition: all 0.2s;
+        }
+        .ep-card:hover { border-color: var(--accent); transform: translateY(-3px); }
+        .ep-thumb { position: relative; aspect-ratio: 16 / 9; background: var(--bg3); }
+        .ep-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .ep-thumb .num-badge {
+            position: absolute; top: 8px; left: 8px;
+            background: var(--accent); color: var(--on-accent);
+            font-size: 0.7rem; font-weight: 800; padding: 2px 8px; border-radius: 3px;
+        }
+        .ep-thumb .play-ovl {
+            position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+            background: rgba(0, 0, 0, 0.35); opacity: 0; transition: opacity 0.15s;
+            color: #fff; font-size: 1.6rem;
+        }
+        .ep-card:hover .play-ovl { opacity: 1; }
+        .ep-body { padding: 10px 12px; }
+        .ep-body .ep-name {
+            font-size: 0.86rem; font-weight: 600;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .ep-body .ep-overview {
+            font-size: 0.74rem; color: var(--text3); line-height: 1.45; margin-top: 4px;
+            display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2;
+            -webkit-box-orient: vertical; overflow: hidden;
+        }
+
+        .loading, .error-box { color: var(--text3); padding: 40px 24px; text-align: center; font-size: 0.95rem; }
+        .skeleton { animation: pulse 1.4s ease-in-out infinite; background: var(--bg3); border-radius: 8px; }
+        @keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+
+        footer {
+            background: var(--bg2); border-top: 1px solid var(--border);
+            color: var(--text3); padding: 24px; text-align: center;
+            font-size: 0.78rem; line-height: 1.7;
+        }
+
+        @media (max-width: 700px) {
+            nav { display: none; }
+            .hero-inner { flex-direction: column; align-items: center; text-align: center; padding: 28px 18px; }
+            .poster { width: 170px; }
+            .hero-info h2 { font-size: 1.5rem; }
+            .meta-row, .genre-chips, .cta-row { justify-content: center; }
+            .episodes-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body data-page="movie-detail">
+
+    <header>
+        <div class="header-inner">
+            <div class="logo">
+                <a href="../index.html"><h1>Ani<span class="highlight">Nova</span> Movies</h1></a>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="index.html">Inicio</a></li>
+                    <li><a href="../anime/index.html">Anime</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <section class="detail-hero">
+        <div class="hero-backdrop" id="heroBackdrop"></div>
+        <div class="hero-inner">
+            <div class="poster" id="posterBox"><div class="skeleton" style="width:100%;height:100%"></div></div>
+            <div class="hero-info">
+                <h2 id="contentTitle">Cargando…</h2>
+                <div class="meta-row" id="metaRow"></div>
+                <div class="genre-chips" id="genreChips"></div>
+                <p class="synopsis" id="synopsis"></p>
+                <button class="synopsis-toggle" id="synopsisToggle" style="display:none">Leer más</button>
+                <div class="cta-row" id="ctaRow"></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="episodes-section" id="episodesSection" style="display:none">
+        <div class="section-heading">
+            <h3><i class="fas fa-list-ol"></i> &nbsp;Episodios</h3>
+            <select id="seasonSelect" onchange="loadSeason()"></select>
+        </div>
+        <div class="episodes-grid" id="episodesGrid"><div class="loading">Cargando episodios…</div></div>
+    </section>
+
+    <footer>
+        <p>
+            <strong>Aviso importante</strong><br>
+            Sitio 100% sin fines de lucro · Proyecto personal y hobby · Uso privado entre amigos<br>
+            No alojamos archivos · Enlaces de terceros · Sin publicidad ni monetización<br>
+            © 2025 – 2026 AniNova – Todos los derechos de las obras pertenecen a sus legítimos propietarios.
+        </p>
+    </footer>
+
+    <script>
+        const VERCEL_PROJECT = 'pagina-ver-anime';
+        const BACKEND_URL = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+            ? 'http://localhost:3000/api'
+            : `https://${VERCEL_PROJECT}.vercel.app/api`;
+        const TMDB_IMG = 'https://image.tmdb.org/t/p';
+
+        const params = new URLSearchParams(location.search);
+        const tmdbId = params.get('id');
+        const type = params.get('type') === 'tv' ? 'tv' : 'movie';
+        let details = null;
+
+        function goWatch(season, episode, lang) {
+            const q = new URLSearchParams();
+            q.set('id', tmdbId);
+            q.set('title', (details && (details.title || details.name)) || params.get('title') || '');
+            q.set('type', type);
+            if (season != null) { q.set('season', season); q.set('episode', episode); }
+            if (lang) q.set('lang', lang);
+            location.href = 'ver.html?' + q.toString();
+        }
+
+        async function init() {
+            if (!tmdbId) { location.href = 'index.html'; return; }
+            const endpoint = type === 'tv' ? `/series/details?id=${tmdbId}` : `/movies/details?id=${tmdbId}`;
+            let data;
+            try {
+                const res = await fetch(BACKEND_URL + endpoint);
+                data = await res.json();
+            } catch { data = { success: false }; }
+
+            if (!data.success || !data.data) {
+                document.getElementById('contentTitle').textContent = 'No se pudo cargar este título.';
+                return;
+            }
+            details = data.data;
+            const d = details;
+            const title = d.title || d.name || '';
+            document.title = `${title} - AniNova Movies`;
+            document.getElementById('contentTitle').textContent = title;
+
+            if (d.poster_path) {
+                document.getElementById('posterBox').innerHTML = `<img src="${TMDB_IMG}/w500${d.poster_path}" alt="Póster">`;
+            }
+            const backdrop = d.backdrop_path || d.poster_path;
+            if (backdrop) {
+                document.getElementById('heroBackdrop').style.backgroundImage = `url('${TMDB_IMG}/w780${backdrop}')`;
+            }
+
+            const meta = document.getElementById('metaRow');
+            const year = (d.release_date || d.first_air_date || '').slice(0, 4);
+            meta.innerHTML = `<span class="status-chip">${type === 'tv' ? 'Serie' : 'Película'}</span>`;
+            if (d.vote_average) meta.innerHTML += `<span class="meta-item"><i class="fas fa-star"></i>${d.vote_average.toFixed(1)}</span>`;
+            if (year) meta.innerHTML += `<span class="meta-item"><i class="fas fa-calendar"></i>${year}</span>`;
+            if (type === 'movie' && d.runtime) meta.innerHTML += `<span class="meta-item"><i class="fas fa-clock"></i>${d.runtime} min</span>`;
+            if (type === 'tv') meta.innerHTML += `<span class="meta-item"><i class="fas fa-layer-group"></i>${d.number_of_seasons} temporada${d.number_of_seasons > 1 ? 's' : ''} · ${d.number_of_episodes} eps</span>`;
+
+            document.getElementById('genreChips').innerHTML = (d.genres || []).map(g => `<span class="genre-chip">${g.name}</span>`).join('');
+
+            const syn = document.getElementById('synopsis');
+            syn.textContent = d.overview || 'Sin descripción disponible.';
+            const toggle = document.getElementById('synopsisToggle');
+            requestAnimationFrame(() => {
+                if (syn.scrollHeight > syn.clientHeight + 4) {
+                    toggle.style.display = 'block';
+                    toggle.onclick = () => {
+                        const ex = syn.classList.toggle('expanded');
+                        toggle.textContent = ex ? 'Leer menos' : 'Leer más';
+                    };
+                }
+            });
+
+            const cta = document.getElementById('ctaRow');
+            if (type === 'movie') {
+                cta.innerHTML = '';
+                const b1 = document.createElement('button');
+                b1.className = 'btn-watch';
+                b1.innerHTML = '<i class="fas fa-play"></i> Ver Película';
+                b1.onclick = () => goWatch();
+                const b2 = document.createElement('button');
+                b2.className = 'btn-watch secondary';
+                b2.innerHTML = '<i class="fas fa-language"></i> Ver en Español';
+                b2.onclick = () => goWatch(null, null, 'es');
+                cta.append(b1, b2);
+            } else {
+                cta.innerHTML = '';
+                const b1 = document.createElement('button');
+                b1.className = 'btn-watch';
+                b1.innerHTML = '<i class="fas fa-play"></i> Ver T1 · Ep. 1';
+                b1.onclick = () => goWatch(1, 1);
+                cta.append(b1);
+
+                // Selector de temporadas + episodios
+                document.getElementById('episodesSection').style.display = 'block';
+                const sel = document.getElementById('seasonSelect');
+                sel.innerHTML = '';
+                (d.seasons || []).filter(s => s.season_number > 0).forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s.season_number;
+                    opt.textContent = `${s.name || 'Temporada ' + s.season_number} (${s.episode_count} eps)`;
+                    sel.appendChild(opt);
+                });
+                loadSeason();
+            }
+        }
+
+        async function loadSeason() {
+            const season = document.getElementById('seasonSelect').value || 1;
+            const grid = document.getElementById('episodesGrid');
+            grid.innerHTML = '<div class="loading">Cargando episodios…</div>';
+            let data;
+            try {
+                const res = await fetch(`${BACKEND_URL}/series/season?id=${tmdbId}&season=${season}`);
+                data = await res.json();
+            } catch { data = { success: false }; }
+
+            if (!data.success || !data.episodes || data.episodes.length === 0) {
+                grid.innerHTML = '<div class="error-box">No hay episodios disponibles para esta temporada.</div>';
+                return;
+            }
+            grid.innerHTML = '';
+            data.episodes.forEach(ep => {
+                const card = document.createElement('div');
+                card.className = 'ep-card';
+                card.onclick = () => goWatch(season, ep.episode_number);
+                card.innerHTML = `
+                    <div class="ep-thumb">
+                        ${ep.still ? `<img src="${ep.still}" alt="" loading="lazy">` : ''}
+                        <span class="num-badge">Ep ${ep.episode_number}</span>
+                        <div class="play-ovl"><i class="fas fa-play"></i></div>
+                    </div>
+                    <div class="ep-body">
+                        <div class="ep-name">${ep.episode_number}. ${ep.name || 'Episodio ' + ep.episode_number}</div>
+                        <div class="ep-overview">${ep.overview || ''}</div>
+                    </div>`;
+                grid.appendChild(card);
+            });
+        }
+
+        init();
+    </script>
+</body>
+</html>

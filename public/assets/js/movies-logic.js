@@ -103,6 +103,7 @@ function renderMovieGrid(items, container) {
 }
 
 // Open player
+// Las cards llevan a la FICHA (detalle.html); desde allí se elige idioma/episodio.
 function openMoviePlayer(item) {
     const params = new URLSearchParams();
     params.set('id', item.id);
@@ -114,7 +115,7 @@ function openMoviePlayer(item) {
     }
     params.set('type', type);
 
-    window.location.href = `ver.html?${params.toString()}`;
+    window.location.href = `detalle.html?${params.toString()}`;
 }
 
 // ===================================================================

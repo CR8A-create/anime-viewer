@@ -172,8 +172,9 @@
         const title = params.get('title');
         const type = params.get('type'); // 'movie' or 'tv'
         let currentLang = 'en';
-        let currentSeason = 1;
-        let currentEpisode = 1;
+        // Deep-link desde la ficha (detalle.html): ?season=&episode=&lang=
+        let currentSeason = parseInt(params.get('season'), 10) || 1;
+        let currentEpisode = parseInt(params.get('episode'), 10) || 1;
         let seriesData = null;
         let contentId = `${type}_${tmdbId}`; // For comments
 
@@ -189,8 +190,13 @@
         } else {
             document.getElementById('activeTitle').textContent = title;
             document.title = `${title} - AniNova Movies`;
+            if (type === 'tv') contentId = `${type}_${tmdbId}_s${currentSeason}e${currentEpisode}`;
             loadContentInfo();
-            loadServers('en');
+            if (params.get('lang') === 'es') {
+                switchLang('es');
+            } else {
+                loadServers('en');
+            }
             loadComments();
         }
 
