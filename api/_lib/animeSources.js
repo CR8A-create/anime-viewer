@@ -229,6 +229,20 @@ function slugCandidates(slug, extraSuffixes = []) {
 
 const PLACEHOLDER_SYNOPSIS = 'Mira este anime en español.';
 
+/**
+ * Los directorios de "en emisión" no traen sinopsis. Este helper visita
+ * la ficha de los primeros N items EN PARALELO (los que usa el carrusel
+ * del inicio) y deja que `apply($, item)` complete sinopsis/portada.
+ * Errores individuales se ignoran: el item se queda con el placeholder.
+ */
+async function enrichAiringItems(sourceKey, items, apply, count = 8) {
+    await Promise.allSettled(items.slice(0, count).map(async (item) => {
+        // Sin slash final: WordPress redirige solo y TioAnime lo usa así
+        const { data } = await sourceGet(sourceKey, `/anime/${item.mal_id}`, { timeout: 5000 });
+        apply(cheerio.load(data), item);
+    }));
+}
+
 // ------------------------------------------------------------
 // Helpers específicos de animeflv.ar (tema WordPress AnimeStream)
 // ------------------------------------------------------------
@@ -299,6 +313,26 @@ const airingProviders = {
             });
         });
         if (items.length === 0) throw new Error('AnimeFLV.ar airing: 0 items (¿cambió el HTML?)');
+        // El directorio no trae sinopsis: enriquecer los primeros items (los
+        // del carrusel del inicio). TioAnime comparte slugs y su sinopsis
+        // está en ESPAÑOL → preferirla; la de .ar (inglés) queda de respaldo.
+        await Promise.all([
+            enrichAiringItems('animeflvar', items, ($, item) => {
+                const desc = $('.entry-content').first().text().trim().replace(/\s+/g, ' ');
+                if (desc) item._synopsisEn = desc;
+                const og = $('meta[property="og:image"]').attr('content');
+                if (og) item.images = { jpg: { large_image_url: og, image_url: og } };
+            }),
+            enrichAiringItems('tioanime', items, ($, item) => {
+                const desc = $('.sinopsis').first().text().trim();
+                if (desc) item._synopsisEs = desc;
+            }),
+        ]);
+        for (const item of items) {
+            item.synopsis = item._synopsisEs || item._synopsisEn || item.synopsis;
+            delete item._synopsisEs;
+            delete item._synopsisEn;
+        }
         return items;
     },
 
@@ -347,6 +381,10 @@ const airingProviders = {
             });
         });
         if (items.length === 0) throw new Error('TioAnime airing: 0 items (¿cambió el HTML?)');
+        await enrichAiringItems('tioanime', items, ($, item) => {
+            const desc = $('.sinopsis').first().text().trim();
+            if (desc) item.synopsis = desc;
+        });
         return items;
     },
 
