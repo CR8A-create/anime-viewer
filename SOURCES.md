@@ -11,10 +11,23 @@ una devuelva datos (`SOURCE_ORDER` en `animeSources.js`):
 
 | Capacidad | Orden de fuentes |
 |---|---|
-| `airing` (en emisión) | AnimeFLV → TioAnime → Jikan (MyAnimeList) |
-| `recent` (últimos episodios) | AnimeFLV → TioAnime → MonosChinos |
-| `info` (detalle + episodios) | AnimeFLV → TioAnime → Jikan |
-| `videos` (servidores de un episodio) | TioAnime → JKAnime → MonosChinos → AnimeFLV |
+| `airing` (en emisión) | **AnimeFLV.ar** → AnimeFLV clásico → TioAnime → Jikan |
+| `recent` (últimos episodios) | **AnimeFLV.ar** → AnimeFLV clásico → TioAnime → MonosChinos |
+| `info` (detalle + episodios) | **AnimeFLV.ar + clásico EN PARALELO (fusión)** → TioAnime → Jikan |
+| `videos` (servidores de un episodio) | **AnimeFLV.ar** → TioAnime → JKAnime → MonosChinos → AnimeFLV clásico |
+
+**Los dos AnimeFLV (julio 2026):**
+
+- **animeflv.ar** — el "nuevo" AnimeFLV (WordPress, tema AnimeStream). Se
+  actualiza a diario con la temporada en curso, pero su catálogo es corto:
+  solo series recientes, y de las series largas solo los últimos ~30
+  episodios. Su servidor "HLS" (player.zilla-networks.com) es el reproductor
+  rápido estilo Crunchyroll — va siempre primero en la lista de servidores.
+- **www3/www4.animeflv.net** — el clásico, CONGELADO desde ~primavera 2026:
+  ya no publica episodios nuevos, pero conserva el catálogo profundo (miles
+  de series completas con sinopsis en español).
+- Por eso `info` fusiona ambos: episodios nuevos del .ar + catálogo/sinopsis
+  del clásico (One Piece: eps 1→1169 con estado "En emisión" al día).
 
 Protecciones automáticas:
 
@@ -63,6 +76,11 @@ esa función. Referencia rápida de lo que se parsea hoy (julio 2026):
 
 | Fuente | Página | Qué se parsea |
 |---|---|---|
+| AnimeFLV.ar | `/anime/?status=ongoing&order=update` | `.bsx` → `.tt h2` (título; el `.tt` lo trae duplicado), `a[href*=/anime/]`, `img` |
+| AnimeFLV.ar | `/` (home) | `.listupd .bsx` → href `/{slug}-episodio-{n}-sub-espanol/`, título `.tt h2` sin el sufijo "Episodio N…" |
+| AnimeFLV.ar | `/?s={q}` | `.bsx` → título + href `/anime/{slug}/` |
+| AnimeFLV.ar | `/anime/{slug}/` | `.eplister li` (`.epl-num` + href), `.entry-content` (sinopsis), `.genxed a`, `.spe span` (Status: ongoing/completed…) |
+| AnimeFLV.ar | `/{slug}-episodio-{n}-sub-espanol/` | `select.mirror option` → value en base64 con `<iframe src=…>`; "HLS" = player.zilla-networks.com (el rápido) |
 | AnimeFLV | `/browse?status=1&order=rating` | `.ListAnimes li article` → `.Title` (usar `.first()`, hay 2 por card), `img[src]`, `.Description p` (último `<p>`), `.Vts` |
 | AnimeFLV | `/` (home) | `.ListEpisodios li` → `.Title`, `.Capi`, `img`, href `/ver/{slug}-{ep}` |
 | AnimeFLV | `/anime/{slug}` | `var episodes = [[num,id],...]` en un `<script>`, `.Description p`, `.Nvgnrs a`, `.AnmStts`, `.vtprmd` |

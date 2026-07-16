@@ -17,8 +17,18 @@ const { scraperGet, createSlug, normTitle } = require('./shared');
 // mientras la función serverless siga caliente.
 // ------------------------------------------------------------
 const SOURCES = {
+    // El "nuevo" AnimeFLV (WordPress, tema AnimeStream). Se actualiza a diario
+    // con la temporada en curso, pero su catálogo es poco profundo (solo
+    // series recientes y últimos ~30 episodios de series largas).
+    animeflvar: {
+        name: 'AnimeFLV.ar',
+        domains: ['https://animeflv.ar'],
+    },
+    // El AnimeFLV clásico quedó CONGELADO (~primavera 2026): catálogo enorme
+    // y fichas completas, pero ya no publica episodios nuevos. Sigue siendo
+    // valioso para info/búsqueda de series antiguas.
     animeflv: {
-        name: 'AnimeFLV',
+        name: 'AnimeFLV (clásico, congelado)',
         domains: ['https://www3.animeflv.net', 'https://www4.animeflv.net', 'https://animeflv.net'],
     },
     tioanime: {
@@ -42,10 +52,13 @@ const SOURCES = {
 // Orden de preferencia por capacidad. Cambiar el orden aquí cambia
 // qué fuente se intenta primero — no hace falta tocar nada más.
 const SOURCE_ORDER = {
-    airing: ['animeflv', 'tioanime', 'jikan'],
-    recent: ['animeflv', 'tioanime', 'monoschinos'],
-    info: ['animeflv', 'tioanime', 'jikan'],
-    videos: ['tioanime', 'jkanime', 'monoschinos', 'animeflv'],
+    airing: ['animeflvar', 'animeflv', 'tioanime', 'jikan'],
+    recent: ['animeflvar', 'animeflv', 'tioanime', 'monoschinos'],
+    // info usa un flujo especial: animeflvar + animeflv EN PARALELO y se
+    // fusionan los episodios (nuevos de .ar + catálogo profundo del clásico).
+    // Esta lista es la cadena de respaldo si ambos fallan.
+    info: ['tioanime', 'jikan'],
+    videos: ['animeflvar', 'tioanime', 'jkanime', 'monoschinos', 'animeflv'],
 };
 
 // ------------------------------------------------------------
@@ -216,11 +229,74 @@ function slugCandidates(slug, extraSuffixes = []) {
 
 const PLACEHOLDER_SYNOPSIS = 'Mira este anime en español.';
 
+// ------------------------------------------------------------
+// Helpers específicos de animeflv.ar (tema WordPress AnimeStream)
+// ------------------------------------------------------------
+/** Título de una card .bsx (el .tt trae el título duplicado: texto + h2). */
+function flvarCardTitle($el) {
+    const h2 = $el.find('.tt h2').first().text().trim();
+    const raw = h2 || $el.find('.tt').first().text().trim();
+    return raw.replace(/\s*Episodio\s+\d+.*$/i, '').replace(/\s+/g, ' ').trim();
+}
+
+const FLVAR_STATUS_ES = { ongoing: 'En emisión', completed: 'Finalizado', upcoming: 'Próximamente', hiatus: 'En pausa' };
+
+/** Extrae los servidores del <select class="mirror"> (iframes en base64). */
+function flvarParseServers(html) {
+    const $ = cheerio.load(html);
+    const servers = [];
+    const seen = new Set();
+    $('select.mirror option, select.mobius option').each((_, el) => {
+        const $o = $(el);
+        const encoded = $o.attr('value') || '';
+        if (!encoded) return;
+        let decoded = '';
+        try { decoded = Buffer.from(encoded, 'base64').toString('utf8'); } catch { return; }
+        let url = (decoded.match(/src="([^"]+)"/i) || [])[1] || (/^https?:\/\//.test(decoded) ? decoded : '');
+        if (url.startsWith('//')) url = 'https:' + url;
+        if (!/^https?:\/\//.test(url) || seen.has(url)) return;
+        seen.add(url);
+        servers.push({ name: $o.text().trim() || 'Servidor', url, lang: 'sub' });
+    });
+    // El player "HLS" (player.zilla-networks.com) es el rápido estilo
+    // Crunchyroll que usa el sitio por defecto: va primero.
+    servers.sort((a, b) => {
+        const ha = a.name.toLowerCase() === 'hls' || a.url.includes('zilla-networks') ? 0 : 1;
+        const hb = b.name.toLowerCase() === 'hls' || b.url.includes('zilla-networks') ? 0 : 1;
+        return ha - hb;
+    });
+    return servers.filter(s => embedAllowed(s.url));
+}
+
 // ============================================================
 // PROVEEDORES — AIRING
 // Shape: { mal_id, title, images:{jpg:{large_image_url,image_url}}, synopsis, score }
 // ============================================================
 const airingProviders = {
+    async animeflvar() {
+        const { data } = await sourceGet('animeflvar', '/anime/?status=ongoing&order=update');
+        const $ = cheerio.load(data);
+        const base = activeDomain('animeflvar');
+        const items = [];
+        $('.bsx').slice(0, 24).each((_, el) => {
+            const $el = $(el);
+            const href = $el.find('a').attr('href') || '';
+            const m = href.match(/\/anime\/([^/]+)\/?$/);
+            const title = flvarCardTitle($el);
+            if (!m || !title) return;
+            const image = absolutize($el.find('img').attr('src') || $el.find('img').attr('data-src'), base);
+            items.push({
+                mal_id: m[1],
+                title,
+                images: { jpg: { large_image_url: image, image_url: image } },
+                synopsis: PLACEHOLDER_SYNOPSIS,
+                score: 'N/A',
+            });
+        });
+        if (items.length === 0) throw new Error('AnimeFLV.ar airing: 0 items (¿cambió el HTML?)');
+        return items;
+    },
+
     async animeflv() {
         const { data } = await sourceGet('animeflv', '/browse?status=1&order=rating');
         const $ = cheerio.load(data);
@@ -288,6 +364,30 @@ const airingProviders = {
 // Shape: { entry:{mal_id,title,images:{jpg:{image_url}}}, episodes:[{title:'Episodio N'}] }
 // ============================================================
 const recentProviders = {
+    async animeflvar() {
+        const { data } = await sourceGet('animeflvar', '/');
+        const $ = cheerio.load(data);
+        const base = activeDomain('animeflvar');
+        const items = [];
+        const seen = new Set();
+        $('.listupd .bsx').each((_, el) => {
+            const $el = $(el);
+            const href = $el.find('a').attr('href') || '';
+            const m = href.match(/\/([^/]+)-episodio-(\d+)[^/]*\/?$/);
+            if (!m || seen.has(href)) return;
+            seen.add(href);
+            const slug = m[1].replace(/-sub-espanol$/, '');
+            const title = flvarCardTitle($el) || slug.replace(/-/g, ' ');
+            const image = absolutize($el.find('img').attr('src') || $el.find('img').attr('data-src'), base);
+            items.push({
+                entry: { mal_id: slug, title, images: { jpg: { image_url: image } } },
+                episodes: [{ title: `Episodio ${m[2]}` }],
+            });
+        });
+        if (items.length === 0) throw new Error('AnimeFLV.ar recent: 0 items (¿cambió el HTML?)');
+        return items.slice(0, 24);
+    },
+
     async animeflv() {
         const { data } = await sourceGet('animeflv', '/');
         const $ = cheerio.load(data);
@@ -362,6 +462,20 @@ const recentProviders = {
 // BÚSQUEDA POR FUENTE → [{ title, slug, image }]
 // ============================================================
 const searchProviders = {
+    async animeflvar(query) {
+        const { data } = await sourceGet('animeflvar', `/?s=${encodeURIComponent(query)}`);
+        const $ = cheerio.load(data);
+        const out = [];
+        $('.bsx').each((_, el) => {
+            const $el = $(el);
+            const href = $el.find('a').attr('href') || '';
+            const m = href.match(/\/anime\/([^/]+)\/?$/);
+            const title = flvarCardTitle($el);
+            if (m && title) out.push({ title, slug: m[1] });
+        });
+        return out;
+    },
+
     async animeflv(query) {
         const { data } = await sourceGet('animeflv', `/browse?q=${encodeURIComponent(query)}`);
         const $ = cheerio.load(data);
@@ -421,6 +535,26 @@ const searchProviders = {
 // Shape: { slug, description, genres, status, rate, episodes:[{number,id}] }
 // ============================================================
 const infoProviders = {
+    async animeflvar(title) {
+        const { slug, data } = await fetchAnimePage('animeflvar', title);
+        const $ = cheerio.load(data);
+        const numbers = $('.eplister li')
+            .map((_, el) => parseInt($(el).find('.epl-num').first().text().trim(), 10))
+            .get()
+            .filter(n => Number.isFinite(n));
+        if (numbers.length === 0) throw new Error(`AnimeFLV.ar info ${slug}: sin episodios (.eplister vacío)`);
+        const statusRaw = ($('.spe span').map((_, el) => $(el).text().trim()).get()
+            .find(t => /^Status/i.test(t)) || '').replace(/^Status:\s*/i, '').toLowerCase();
+        return {
+            slug,
+            description: $('.entry-content').first().text().trim().replace(/\s+/g, ' '),
+            genres: $('.genxed a').map((_, el) => $(el).text().trim()).get(),
+            status: FLVAR_STATUS_ES[statusRaw] || statusRaw || '',
+            rate: $('.rating strong').first().text().trim().replace(/^Rating\s*/i, ''),
+            episodes: [...new Set(numbers)].sort((a, b) => b - a).map(n => ({ number: n, id: null })),
+        };
+    },
+
     async animeflv(title) {
         const { slug, data } = await fetchAnimePage('animeflv', title);
         const rawEps = parseJsVar(data, 'episodes');
@@ -509,6 +643,52 @@ function embedAllowed(url) {
 }
 
 const videoProviders = {
+    // Servidores del nuevo AnimeFLV.ar. Su player "HLS" (zilla-networks)
+    // es rápido y estilo Crunchyroll: flvarParseServers lo pone primero.
+    async animeflvar(slug, episode) {
+        for (const cand of slugCandidates(slug)) {
+            let data;
+            try {
+                ({ data } = await sourceGet('animeflvar', `/${cand}-episodio-${episode}-sub-espanol/`, { timeout: 5500 }));
+            } catch (e) {
+                if (!e.notFound) throw e;
+                continue;
+            }
+            const servers = flvarParseServers(data);
+            if (servers.length > 0) return servers;
+        }
+        // Rescate: buscar el enlace exacto del episodio en la ficha del anime
+        // (por si el slug del episodio no sigue el patrón -sub-espanol).
+        for (const cand of slugCandidates(slug)) {
+            let page;
+            try {
+                ({ data: page } = await sourceGet('animeflvar', `/anime/${cand}/`, { timeout: 5500 }));
+            } catch (e) {
+                if (!e.notFound) throw e;
+                continue;
+            }
+            const $ = cheerio.load(page);
+            let epPath = null;
+            $('.eplister li').each((_, li) => {
+                const num = $(li).find('.epl-num').first().text().trim();
+                if (num === String(episode)) {
+                    const href = $(li).find('a').attr('href') || '';
+                    try { epPath = new URL(href).pathname; } catch { /* href inválido */ }
+                    return false;
+                }
+            });
+            if (!epPath) return [];
+            try {
+                const { data } = await sourceGet('animeflvar', epPath, { timeout: 5500 });
+                return flvarParseServers(data);
+            } catch (e) {
+                if (e.notFound) return [];
+                throw e;
+            }
+        }
+        return [];
+    },
+
     async tioanime(slug, episode) {
         for (const cand of slugCandidates(slug)) {
             let data;
@@ -626,11 +806,68 @@ const videoProviders = {
 // ORQUESTADOR
 // ============================================================
 /**
+ * INFO con fusión: consulta animeflvar (fresco, catálogo corto) y el
+ * animeflv clásico (congelado, catálogo profundo) EN PARALELO y une sus
+ * listas de episodios. Así una serie larga en emisión (p.ej. One Piece)
+ * conserva los episodios antiguos Y los recién emitidos.
+ */
+async function infoMerged(title) {
+    const keys = ['animeflvar', 'animeflv'].filter(k => !breakerOpen(k));
+    const settled = await Promise.all(keys.map(k =>
+        infoProviders[k](title).then(d => ({ k, d }), e => ({ k, e }))
+    ));
+    const oks = settled.filter(s => s.d);
+    const errors = settled.filter(s => s.e).map(s => `${s.k}: ${s.e.message}`);
+
+    if (oks.length === 1) return { data: oks[0].d, source: oks[0].k };
+    if (oks.length === 2) {
+        const ar = oks.find(o => o.k === 'animeflvar').d;
+        const cl = oks.find(o => o.k === 'animeflv').d;
+        // Solo fusionar si ambos resolvieron al MISMO anime (slugs similares)
+        const clean = s => s.replace(/-(tv|ova|movie|special|specials|sub-espanol)$/, '').replace(/-/g, ' ');
+        if (matchScore(clean(ar.slug), clean(cl.slug)) >= 400) {
+            const nums = new Set();
+            const episodes = [];
+            for (const ep of [...ar.episodes, ...cl.episodes]) {
+                if (nums.has(ep.number)) continue;
+                nums.add(ep.number);
+                episodes.push(ep);
+            }
+            episodes.sort((a, b) => b.number - a.number);
+            return {
+                data: {
+                    slug: ar.slug, // .ar primero en videos: su slug da el camino rápido
+                    description: cl.description || ar.description,
+                    genres: (cl.genres && cl.genres.length) ? cl.genres : ar.genres,
+                    status: ar.status || cl.status, // .ar está al día
+                    rate: cl.rate || ar.rate,
+                    episodes,
+                },
+                source: 'animeflvar+animeflv',
+            };
+        }
+        // Resolvieron animes distintos: gana el que mejor coincide con el título
+        const better = matchScore(title, clean(ar.slug)) >= matchScore(title, clean(cl.slug))
+            ? oks.find(o => o.k === 'animeflvar') : oks.find(o => o.k === 'animeflv');
+        return { data: better.d, source: better.k };
+    }
+
+    // Ambos fallaron: cadena de respaldo (SOURCE_ORDER.info)
+    try {
+        return await scrapeWithFallback('info-fallback-chain', title);
+    } catch (e) {
+        throw new Error(`${errors.join(' | ')} | ${e.message}`);
+    }
+}
+
+/**
  * Prueba las fuentes de `capability` en orden hasta que una devuelva
  * datos. Devuelve { data, source }. Lanza con el detalle de todos los
  * fallos si ninguna funciona.
  */
 async function scrapeWithFallback(capability, ...args) {
+    if (capability === 'info') return infoMerged(...args);
+    if (capability === 'info-fallback-chain') capability = 'info';
     const providersMap = { airing: airingProviders, recent: recentProviders, info: infoProviders, videos: videoProviders }[capability];
     const errors = [];
     for (const key of SOURCE_ORDER[capability]) {
@@ -677,7 +914,11 @@ async function checkSourcesStatus() {
             lastFail: h.lastFail ? new Date(h.lastFail).toISOString() : null,
             consecutiveFails: h.consecFails,
             lastError: h.lastError,
-            usedFor: Object.entries(SOURCE_ORDER).filter(([, v]) => v.includes(key)).map(([k]) => k),
+            usedFor: [
+                ...Object.entries(SOURCE_ORDER).filter(([, v]) => v.includes(key)).map(([k]) => k),
+                // info usa animeflvar+animeflv en paralelo (flujo de fusión)
+                ...(['animeflvar', 'animeflv'].includes(key) ? ['info'] : []),
+            ],
         };
     });
     return Promise.all(checks);
