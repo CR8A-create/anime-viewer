@@ -221,6 +221,14 @@
                 btnEs.classList.remove('active');
             }
             loadServers(lang);
+
+            // Nota honesta: en series el doblaje va en el selector interno del player
+            const note = document.getElementById('langNote');
+            if (note) {
+                note.textContent = (lang === 'es' && type === 'tv')
+                    ? 'Si el audio sale en inglés, abre el menú de audio/servidores DENTRO del reproductor y elige Latino/Español.'
+                    : 'La disponibilidad del español depende de cada título';
+            }
         }
 
         // ================================================================

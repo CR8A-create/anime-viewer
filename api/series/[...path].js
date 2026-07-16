@@ -43,11 +43,14 @@ module.exports = async (req, res) => {
             // VidFast/VidLink tienen selector de servidores con doblajes.
             let servers = [];
             if (lang === 'es') {
+                // No existe una API de doblaje puro para series: estos players
+                // llevan pistas Latino/Castellano en su selector interno. Se
+                // priorizan los que más veces traen doblaje ES por defecto.
                 servers = [
+                    { name: 'VidSrc.su ★', url: `https://vidsrc.su/embed/tv/${tmdbId}/${season}/${episode}` },
                     { name: 'VidFast ES', url: `https://vidfast.pro/tv/${tmdbId}/${season}/${episode}` },
                     { name: 'VidLink', url: `https://vidlink.pro/tv/${tmdbId}/${season}/${episode}` },
                     { name: 'MultiEmbed ES', url: `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&s=${season}&e=${episode}&lang=es` },
-                    { name: 'VidSrc ES', url: `https://vidsrc.to/embed/tv/${tmdbId}/${season}/${episode}?sub_lang=es` },
                 ];
             } else {
                 servers = [
