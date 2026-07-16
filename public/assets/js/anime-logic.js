@@ -414,9 +414,7 @@ async function fetchTopAnime(page = 1, append = false) {
                 data.data.forEach(anime => {
                     const card = document.createElement('div');
                     card.className = 'anime-card';
-                    card.onclick = () => {
-                        window.location.href = `ver.html?anime=${encodeURIComponent(anime.title)}`;
-                    };
+                    card.onclick = () => openPlayer(anime);
                     const thumb = anime.images?.jpg?.image_url || anime.image_url;
                     const name = anime.title || 'Sin título';
                     card.innerHTML = `
@@ -619,12 +617,17 @@ function renderAnimeGrid(animeList, container) {
 // ---------------------------------------------------------
 
 // CRITICAL: Must be defined before usage in onclick
+// Las cards llevan a la FICHA del anime (anime.html); desde allí se elige episodio.
 function openPlayer(anime) {
-    // Redirect logic
     const params = new URLSearchParams();
     params.set('id', anime.mal_id);
     params.set('title', anime.title);
-    window.location.href = `ver.html?${params.toString()}`;
+    // Portada instantánea para la ficha (evita esperar al backend)
+    try {
+        const image = (anime.images && anime.images.jpg && (anime.images.jpg.large_image_url || anime.images.jpg.image_url)) || '';
+        sessionStorage.setItem('anc_selected', JSON.stringify({ title: anime.title, image }));
+    } catch { /* storage lleno, da igual */ }
+    window.location.href = `anime.html?${params.toString()}`;
 }
 // Expose globally for inline onclicks
 window.openPlayer = openPlayer;
@@ -743,7 +746,10 @@ async function initializePlayer(anime) {
                 currentSlug = data.slug;
                 currentEpisodesList = data.episodes;
                 renderEpisodes(data.episodes);
-                fetchVideoLinks(data.episodes[0].number);
+                // ?ep=N (viene de la ficha anime.html); si no, el más reciente
+                const epParam = parseInt(new URLSearchParams(window.location.search).get('ep'), 10);
+                const startEp = data.episodes.some(e => e.number === epParam) ? epParam : data.episodes[0].number;
+                fetchVideoLinks(startEp);
             } else {
                 if (episodesList) episodesList.innerHTML = '<p>No se encontraron episodios.</p>';
                 if (placeholderMessage) placeholderMessage.querySelector('p').textContent = 'Lo sentimos, no disponible.';

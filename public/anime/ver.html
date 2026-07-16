@@ -389,7 +389,7 @@
 
         <!-- Top bar: back + episode title -->
         <div class="top-bar">
-            <button class="back-btn" onclick="window.location.href='index.html'">
+            <button class="back-btn" onclick="goBackToDetail()">
                 <i class="fas fa-arrow-left"></i> Volver
             </button>
             <span id="activeEpisodeTitle"></span>
@@ -487,8 +487,15 @@
         </p>
     </footer>
 
-    <script src="../assets/js/anime-logic.js"></script>
+    <script src="../assets/js/anime-logic.js?v=3"></script>
     <script>
+        // ── Volver a la ficha del anime ───────────────────────────
+        function goBackToDetail() {
+            const p = new URLSearchParams(window.location.search);
+            const t = p.get('title') || p.get('id');
+            window.location.href = t ? `anime.html?title=${encodeURIComponent(t)}&id=${encodeURIComponent(p.get('id') || t)}` : 'index.html';
+        }
+
         // ── Comments API ──────────────────────────────────────────
         const VERCEL_PROJECT_ANIME = 'pagina-ver-anime';
         const COMMENTS_API = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')

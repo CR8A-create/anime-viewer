@@ -241,6 +241,11 @@ function flvarCardTitle($el) {
 
 const FLVAR_STATUS_ES = { ongoing: 'En emisión', completed: 'Finalizado', upcoming: 'Próximamente', hiatus: 'En pausa' };
 
+/** Portada desde <meta property="og:image"> (la forma más estable en WP/FLV). */
+function metaImage($, base) {
+    return absolutize($('meta[property="og:image"]').attr('content') || '', base);
+}
+
 /** Extrae los servidores del <select class="mirror"> (iframes en base64). */
 function flvarParseServers(html) {
     const $ = cheerio.load(html);
@@ -547,6 +552,8 @@ const infoProviders = {
             .find(t => /^Status/i.test(t)) || '').replace(/^Status:\s*/i, '').toLowerCase();
         return {
             slug,
+            title: $('h1').first().text().trim(),
+            image: metaImage($, activeDomain('animeflvar')),
             description: $('.entry-content').first().text().trim().replace(/\s+/g, ' '),
             genres: $('.genxed a').map((_, el) => $(el).text().trim()).get(),
             status: FLVAR_STATUS_ES[statusRaw] || statusRaw || '',
@@ -562,6 +569,8 @@ const infoProviders = {
         const $ = cheerio.load(data);
         return {
             slug,
+            title: $('h1.Title').first().text().trim() || $('h1').first().text().trim(),
+            image: metaImage($, activeDomain('animeflv')),
             description: $('.Description p').first().text().trim() || $('.Description').text().trim(),
             genres: $('.Nvgnrs a, .Genres a').map((_, el) => $(el).text().trim()).get(),
             status: $('.AnmStts').first().text().trim(),
@@ -578,6 +587,8 @@ const infoProviders = {
         const info = parseJsVar(data, 'anime_info') || [];
         return {
             slug: info[1] || slug,
+            title: info[2] || $('h1').first().text().trim(),
+            image: absolutize($('.thumb img').first().attr('src') || '', activeDomain('tioanime')),
             description: $('.sinopsis').first().text().trim(),
             genres: $('.genres a').map((_, el) => $(el).text().trim()).get(),
             status: $('.anime-status, .status').first().text().trim() || '',
@@ -600,6 +611,8 @@ const infoProviders = {
         for (let n = count; n >= 1; n--) episodes.push({ number: n, id: null });
         return {
             slug: createSlug(a.title),
+            title: a.title,
+            image: (a.images && a.images.jpg && a.images.jpg.large_image_url) || '',
             description: a.synopsis || '',
             genres: (a.genres || []).map(g => g.name),
             status: a.status === 'Currently Airing' ? 'En emisión' : (a.status === 'Finished Airing' ? 'Finalizado' : (a.status || '')),
@@ -837,6 +850,8 @@ async function infoMerged(title) {
             return {
                 data: {
                     slug: ar.slug, // .ar primero en videos: su slug da el camino rápido
+                    title: cl.title || ar.title,
+                    image: cl.image || ar.image, // portada del clásico suele ser mejor
                     description: cl.description || ar.description,
                     genres: (cl.genres && cl.genres.length) ? cl.genres : ar.genres,
                     status: ar.status || cl.status, // .ar está al día
