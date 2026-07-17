@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manga - AniNova</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../assets/css/manga-theme.css">
+</head>
+<body data-page="manga-home">
+    <header>
+        <div class="header-inner">
+            <div class="logo"><a href="../index.html"><h1>Ani<span class="hl">Nova</span> Manga</h1></a></div>
+            <div class="search-bar">
+                <input type="text" id="searchInput" placeholder="Buscar manga, manhwa...">
+                <button id="searchBtn"><i class="fas fa-search"></i></button>
+            </div>
+            <nav><ul>
+                <li><a href="../anime/index.html">Anime</a></li>
+                <li><a href="../movies/index.html">Pelis/Series</a></li>
+                <li><a href="../novelas/index.html">Novelas</a></li>
+            </ul></nav>
+        </div>
+    </header>
+
+    <div class="type-tabs container">
+        <button class="type-tab active" data-type="manga"><i class="fas fa-book-open"></i> Manga</button>
+        <button class="type-tab" data-type="manhwa"><i class="fas fa-dragon"></i> Manhwa / Webtoon</button>
+    </div>
+
+    <main class="container section">
+        <div class="section-header"><h3 id="sectionTitle"><i class="fas fa-fire"></i> Populares</h3></div>
+        <div class="manga-grid" id="mangaGrid"></div>
+        <div class="load-more-wrap">
+            <button class="load-more" id="loadMore" style="display:none"><i class="fas fa-plus"></i> Ver más</button>
+        </div>
+    </main>
+
+    <footer>
+        <p><strong>Aviso importante</strong><br>
+        Lectura vía MangaDex · Proyecto personal sin ánimo de lucro · No alojamos archivos<br>
+        © 2025 – 2026 AniNova – Todos los derechos pertenecen a sus autores y editoriales.</p>
+    </footer>
+
+    <script src="../assets/js/manga-logic.js?v=1"></script>
+</body>
+</html>

@@ -57,6 +57,13 @@ app.all(['/api/series/:action', '/api/series/:action/:p1', '/api/series/:action/
     return seriesApiHandler(req, res);
 });
 
+// Manga (proxy a MangaDex)
+const mangaApiHandler = require('./api/manga/[...path].js');
+app.all(['/api/manga/:action', '/api/manga/:action/:p1'], (req, res) => {
+    req.query.path = [req.params.action, req.params.p1].filter(Boolean);
+    return mangaApiHandler(req, res);
+});
+
 // Simple in-memory cache
 const cache = new Map();
 const CACHE_DURATION = 15 * 60 * 1000; // 15 minutes (anime data barely changes)

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leyendo - AniNova</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../assets/css/manga-theme.css">
+</head>
+<body class="reader-body" data-page="manga-reader">
+    <div class="reader-bar">
+        <button class="back" id="backBtn"><i class="fas fa-arrow-left"></i> Ficha</button>
+        <span class="r-title" id="rTitle">Cargando…</span>
+        <select id="chapterSelect"></select>
+    </div>
+
+    <div class="reader-pages" id="pages">
+        <div class="reader-loading"><div class="spin"></div><p style="margin-top:16px">Cargando páginas…</p></div>
+    </div>
+
+    <div class="reader-nav">
+        <button id="prevBtn" disabled><i class="fas fa-chevron-left"></i> Anterior</button>
+        <button id="nextBtn" disabled>Siguiente <i class="fas fa-chevron-right"></i></button>
+    </div>
+
+    <script src="../assets/js/mi-lista.js?v=1"></script>
+    <script>
+        const VERCEL_PROJECT = 'pagina-ver-anime';
+        const API = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+            ? 'http://localhost:3000/api'
+            : `https://${VERCEL_PROJECT}.vercel.app/api`;
+
+        const params = new URLSearchParams(location.search);
+        const mangaId = params.get('manga');
+        let chapterId = params.get('chapter');
+        const listKey = 'manga-' + mangaId;
+        let chapters = [];
+
+        document.getElementById('backBtn').onclick = () => location.href = `manga.html?id=${mangaId}`;
+
+        async function loadChaptersList() {
+            try {
+                const res = await fetch(`${API}/manga/chapters?id=${mangaId}`);
+                const data = await res.json();
+                chapters = (data.success && data.chapters) ? data.chapters : [];
+            } catch { chapters = []; }
+            const sel = document.getElementById('chapterSelect');
+            sel.innerHTML = '';
+            [...chapters].reverse().forEach(c => {
+                const o = document.createElement('option');
+                o.value = c.id;
+                o.textContent = `Capítulo ${c.chapter}${c.title ? ' · ' + c.title : ''}`;
+                sel.appendChild(o);
+            });
+            sel.value = chapterId;
+            sel.onchange = () => { chapterId = sel.value; loadPages(); };
+        }
+
+        function currentIndex() { return chapters.findIndex(c => c.id === chapterId); }
+
+        async function loadPages() {
+            const cont = document.getElementById('pages');
+            cont.innerHTML = '<div class="reader-loading"><div class="spin"></div><p style="margin-top:16px">Cargando páginas…</p></div>';
+            window.scrollTo(0, 0);
+
+            const idx = currentIndex();
+            const ch = chapters[idx];
+            document.getElementById('rTitle').textContent = ch ? `Capítulo ${ch.chapter}` : 'Leyendo';
+            document.getElementById('chapterSelect').value = chapterId;
+
+            // Guardar progreso + marcar leído
+            if (ch) {
+                try {
+                    MiLista.setMangaProgress(listKey, ch.chapter);
+                    MiLista.markChapterRead(listKey, ch.chapter);
+                    MiLista.pushHistory({ key: listKey, title: document.getElementById('rTitle').textContent, image: '', label: `Cap. ${ch.chapter}`, url: `leer.html?manga=${mangaId}&chapter=${ch.id}`, kind: 'manga' });
+                } catch {}
+            }
+
+            try {
+                const res = await fetch(`${API}/manga/pages?chapter=${chapterId}`);
+                const data = await res.json();
+                if (!data.success || !data.pages.length) {
+                    cont.innerHTML = '<div class="error-box" style="color:#ccc;padding:60px">No se pudieron cargar las páginas de este capítulo.</div>';
+                } else {
+                    cont.innerHTML = data.pages.map((u, i) =>
+                        `<img src="${u}" referrerpolicy="no-referrer" loading="lazy" alt="Página ${i + 1}">`).join('');
+                }
+            } catch {
+                cont.innerHTML = '<div class="error-box" style="color:#ccc;padding:60px">Error de conexión.</div>';
+            }
+            updateNav();
+        }
+
+        function updateNav() {
+            const idx = currentIndex();
+            const prev = document.getElementById('prevBtn');
+            const next = document.getElementById('nextBtn');
+            prev.disabled = idx <= 0;
+            next.disabled = idx < 0 || idx >= chapters.length - 1;
+            prev.onclick = () => { if (idx > 0) { chapterId = chapters[idx - 1].id; loadPages(); } };
+            next.onclick = () => { if (idx < chapters.length - 1) { chapterId = chapters[idx + 1].id; loadPages(); } };
+        }
+
+        (async () => {
+            await loadChaptersList();
+            loadPages();
+        })();
+    </script>
+</body>
+</html>

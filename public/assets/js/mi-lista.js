@@ -75,7 +75,23 @@
     }
     function getHistory() { return load(K_HISTORY, []); }
 
-    window.MiLista = { keyOf, getFavs, isFav, toggleFav, markWatched, isWatched, watchedCount, pushHistory, getHistory };
+    // ---- PROGRESO DE MANGA ----
+    const K_MANGA_PROG = 'anv_manga_prog';   // { mangaKey: ultimoCapLeido }
+    const K_MANGA_READ = 'anv_manga_read';   // { mangaKey: { cap: ts } }
+    function setMangaProgress(key, chapter) { const p = load(K_MANGA_PROG, {}); p[key] = chapter; save(K_MANGA_PROG, p); }
+    function getMangaProgress(key) { return load(K_MANGA_PROG, {})[key] || null; }
+    function markChapterRead(key, chapter) {
+        const r = load(K_MANGA_READ, {});
+        if (!r[key]) r[key] = {};
+        r[key][chapter] = Date.now();
+        save(K_MANGA_READ, r);
+    }
+    function getReadChapters(key) { return load(K_MANGA_READ, {})[key] || {}; }
+
+    window.MiLista = {
+        keyOf, getFavs, isFav, toggleFav, markWatched, isWatched, watchedCount, pushHistory, getHistory,
+        setMangaProgress, getMangaProgress, markChapterRead, getReadChapters,
+    };
 
     // ---- SECCIÓN "CONTINUAR VIENDO" EN EL INICIO DE ANIME ----
     // Se inyecta sola si estamos en el index de anime y hay historial.
