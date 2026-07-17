@@ -534,11 +534,10 @@
 
         <!-- Video player -->
         <div class="video-wrapper">
-            <!-- sandbox SIN allow-popups ni allow-top-navigation: bloquea los
-                 popunders y los redirects que secuestran la pestaña. El vídeo
-                 sigue funcionando con allow-scripts + allow-same-origin. -->
+            <!-- Sin sandbox: rompía muchos servidores (solo sobrevivía
+                 YourUpload). El bloqueo de anuncios se hace por DNS/uBlock
+                 (ver ANUNCIOS.md), que no interfiere con la reproducción. -->
             <iframe id="videoPlayer" src="" frameborder="0"
-                sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock"
                 allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
                 allowfullscreen></iframe>
             <div id="placeholderMessage" class="placeholder-message">

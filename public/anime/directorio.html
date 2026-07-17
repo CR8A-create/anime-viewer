@@ -8,18 +8,42 @@
     <link rel="stylesheet" href="../assets/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Filtros del directorio (paleta naranja de style.css) */
+        .dir-filters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 26px;
+        }
+        .dir-filters .fgroup { display: flex; flex-direction: column; gap: 6px; flex: 1 1 160px; min-width: 140px; }
+        .dir-filters label { font-size: .72rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-gray); font-weight: 700; }
+        .dir-filters select {
+            background: var(--bg-elevated); color: #fff; border: 1px solid var(--border-soft);
+            padding: 10px 12px; border-radius: 8px; font-family: inherit; font-size: .9rem; cursor: pointer; outline: none;
+        }
+        .dir-filters select:focus { border-color: var(--primary-color); }
+        .dir-search { display: flex; flex: 2 1 240px; min-width: 200px; background: var(--bg-elevated); border: 1px solid var(--border-soft); border-radius: 8px; overflow: hidden; align-self: flex-end; }
+        .dir-search input { flex: 1; background: transparent; border: none; color: #fff; padding: 10px 14px; font-family: inherit; font-size: .9rem; outline: none; }
+        .dir-search button { background: var(--primary-color); border: none; color: #0b0c10; padding: 0 16px; cursor: pointer; font-size: 1rem; }
+        .dir-count { color: var(--text-gray); font-size: .82rem; margin-bottom: 14px; }
+        .dir-pagination { display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 34px; flex-wrap: wrap; }
+        .dir-pagination button {
+            background: var(--bg-elevated); border: 1px solid var(--border-soft); color: #fff;
+            padding: 9px 18px; border-radius: 8px; cursor: pointer; font-family: inherit; font-weight: 600;
+            display: flex; align-items: center; gap: 7px; transition: all .2s;
+        }
+        .dir-pagination button:hover:not(:disabled) { background: var(--primary-color); border-color: var(--primary-color); color: #0b0c10; }
+        .dir-pagination button:disabled { opacity: .4; cursor: not-allowed; }
+        .dir-pagination .page-ind { color: var(--text-gray); font-size: .9rem; }
+        .dir-loading, .dir-error { grid-column: 1/-1; text-align: center; color: var(--text-gray); padding: 40px; }
+    </style>
 </head>
 
 <body data-page="directory">
-    <!-- Header -->
     <header>
         <div class="container header-content">
-            <div class="logo">
-                <a href="../index.html">
-                    <h1>Ani<span class="highlight">Nova</span></h1>
-                </a>
-            </div>
-            <!-- Search Bar Removed -->
+            <div class="logo"><a href="../index.html"><h1>Ani<span class="highlight">Nova</span></h1></a></div>
             <nav>
                 <ul>
                     <li><a href="index.html">Inicio</a></li>
@@ -31,98 +55,157 @@
         </div>
     </header>
 
-    <!-- Main Content -->
-    <main id="mainContent" class="container section">
-        <div class="section-header">
-            <h3><i class="fas fa-folder-open"></i> Directorio de Animes</h3>
-        </div>
+    <main class="container section">
+        <div class="section-header"><h3><i class="fas fa-folder-open"></i> Directorio de Animes</h3></div>
 
-        <!-- Filters -->
-        <div class="filters-container">
-            <div class="filter-group">
-                <label><i class="fas fa-filter"></i> Género:</label>
-                <select id="genreSelect">
+        <div class="dir-filters">
+            <div class="fgroup">
+                <label><i class="fas fa-filter"></i> Género</label>
+                <select id="genreSelect"><option value="">Todos</option></select>
+            </div>
+            <div class="fgroup">
+                <label><i class="fas fa-tv"></i> Tipo</label>
+                <select id="typeSelect">
                     <option value="">Todos</option>
-                    <option value="1">Acción</option>
-                    <option value="2">Aventura</option>
-                    <option value="4">Comedia</option>
-                    <option value="8">Drama</option>
-                    <option value="10">Fantasía</option>
-                    <option value="22">Romance</option>
-                    <option value="24">Ciencia Ficción</option>
-                    <option value="36">Slice of Life</option>
-                    <option value="30">Deportes</option>
-                    <option value="62">Isekai</option>
+                    <option value="tv">Anime (TV)</option>
+                    <option value="movie">Película</option>
+                    <option value="ova">OVA</option>
+                    <option value="special">Especial</option>
                 </select>
             </div>
-
-            <div class="filter-group">
-                <label><i class="fas fa-sort-alpha-down"></i> Orden:</label>
-                <div class="alphabet-filter" id="alphabetFilter">
-                    <button class="alpha-btn active" data-letter="">Todo</button>
-                    <!-- Letters A-Z injected via JS -->
-                </div>
+            <div class="fgroup">
+                <label><i class="fas fa-sort"></i> Orden</label>
+                <select id="orderSelect">
+                    <option value="rating">Populares</option>
+                    <option value="updated">Recientes</option>
+                    <option value="added">Nuevos</option>
+                    <option value="title">A - Z</option>
+                </select>
+            </div>
+            <div class="dir-search">
+                <input type="text" id="searchInput" placeholder="Buscar anime por nombre...">
+                <button id="searchBtn"><i class="fas fa-search"></i></button>
             </div>
         </div>
 
-        <!-- Results Grid -->
-        <div class="anime-grid" id="directoryGrid">
-            <div class="loading">Cargando directorio...</div>
-        </div>
-
-        <!-- Pagination -->
-        <div class="pagination" id="pagination">
-            <!-- Pagination buttons injected via JS -->
+        <div class="dir-count" id="dirCount"></div>
+        <div class="anime-grid" id="directoryGrid"></div>
+        <div class="dir-pagination" id="pagination" style="display:none">
+            <button id="prevPage"><i class="fas fa-chevron-left"></i> Anterior</button>
+            <span class="page-ind" id="pageInd">Página 1</span>
+            <button id="nextPage">Siguiente <i class="fas fa-chevron-right"></i></button>
         </div>
     </main>
 
-    <!-- Player View (Hidden by default) -->
-    <div id="playerView" class="player-view hidden">
-        <div class="container">
-            <button class="back-btn" onclick="showHome()"><i class="fas fa-arrow-left"></i> Volver al
-                Directorio</button>
-
-            <div class="video-container">
-                <div class="video-wrapper">
-                    <iframe id="videoPlayer" src="" frameborder="0" allowfullscreen></iframe>
-                    <div id="placeholderMessage" class="placeholder-message">
-                        <i class="fas fa-film"></i>
-                        <h3>Selecciona un Servidor</h3>
-                        <p>Buscando enlaces...</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="server-controls">
-                <span><i class="fas fa-server"></i> Servidores:</span>
-                <div class="server-list">
-                    <!-- Buttons injected via JS -->
-                    <button class="server-btn">Cargando...</button>
-                </div>
-            </div>
-
-            <!-- Episode List -->
-            <div class="episodes-container">
-                <h3><i class="fas fa-list-ol"></i> Episodios</h3>
-                <div class="episodes-list" id="episodesList">
-                    <!-- Episodes injected via JS -->
-                </div>
-            </div>
-
-            <div class="anime-info-detailed" id="animeInfoDetailed">
-                <!-- Details injected via JS -->
-            </div>
-        </div>
-    </div>
-
-    <footer style="background:#1f1f1f; color:#999; padding:25px; text-align:center; font-size:0.85em;">
+    <footer style="background:#141519; color:#666; padding:25px; text-align:center; font-size:0.85em; border-top:1px solid #23252b;">
         <p><strong>Aviso importante</strong><br>
-            Sitio 100% sin fines de lucro · Proyecto personal y hobby · Uso privado entre amigos<br>
-            No alojamos archivos · Enlaces de terceros · Sin publicidad ni monetización<br>
-            © 2025 - 2026 AniNova – Todos los derechos de las obras pertenecen a sus legítimos propietarios.</p>
+        Sitio 100% sin fines de lucro · Proyecto personal · No alojamos archivos · Enlaces de terceros<br>
+        © 2025 - 2026 AniNova – Todos los derechos de las obras pertenecen a sus legítimos propietarios.</p>
     </footer>
 
-    <script src="../assets/js/anime-logic.js?v=5"></script>
+    <script src="../assets/js/mi-lista.js?v=1"></script>
+    <script>
+        const VERCEL_PROJECT = 'pagina-ver-anime';
+        const API = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+            ? 'http://localhost:3000/api'
+            : `https://${VERCEL_PROJECT}.vercel.app/api`;
+
+        const grid = document.getElementById('directoryGrid');
+        const pag = document.getElementById('pagination');
+        let page = 1, mode = 'browse', lastQuery = '';
+
+        function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+        function escAttr(s) { return (s || '').replace(/"/g, '&quot;'); }
+
+        function openAnime(item) {
+            try { sessionStorage.setItem('anc_selected', JSON.stringify({ title: item.title, image: (item.images && item.images.jpg && (item.images.jpg.large_image_url || item.images.jpg.image_url)) || '' })); } catch {}
+            location.href = `anime.html?id=${encodeURIComponent(item.mal_id)}&title=${encodeURIComponent(item.title)}`;
+        }
+
+        function render(items) {
+            grid.innerHTML = '';
+            if (!items || !items.length) { grid.innerHTML = '<div class="dir-error">No se encontraron animes.</div>'; return; }
+            items.forEach(a => {
+                const img = (a.images && a.images.jpg && (a.images.jpg.image_url || a.images.jpg.large_image_url)) || '';
+                const card = document.createElement('div');
+                card.className = 'anime-card';
+                card.onclick = () => openAnime(a);
+                card.innerHTML = `
+                    <img src="${img}" alt="${escAttr(a.title)}" loading="lazy" referrerpolicy="no-referrer">
+                    <div class="card-info">
+                        <span class="type">${esc(a.type || 'Anime')}</span>
+                        <h4>${esc(a.title)}</h4>
+                    </div>`;
+                grid.appendChild(card);
+            });
+        }
+
+        async function loadBrowse() {
+            mode = 'browse';
+            grid.innerHTML = '<div class="dir-loading"><i class="fas fa-circle-notch fa-spin"></i> Cargando directorio…</div>';
+            const genre = document.getElementById('genreSelect').value;
+            const type = document.getElementById('typeSelect').value;
+            const order = document.getElementById('orderSelect').value;
+            const qs = new URLSearchParams({ page, order });
+            if (genre) qs.set('genre', genre);
+            if (type) qs.set('type', type);
+            try {
+                const res = await fetch(`${API}/anime/top?${qs}`);
+                const data = await res.json();
+                render(data.data);
+                document.getElementById('dirCount').textContent = data.data && data.data.length ? `Mostrando ${data.data.length} animes · página ${page}` : '';
+                pag.style.display = 'flex';
+                document.getElementById('pageInd').textContent = `Página ${page}`;
+                document.getElementById('prevPage').disabled = page <= 1;
+                document.getElementById('nextPage').disabled = !(data.pagination && data.pagination.has_next_page);
+            } catch {
+                grid.innerHTML = '<div class="dir-error">Error al cargar el directorio.</div>';
+            }
+        }
+
+        async function loadSearch(q) {
+            mode = 'search'; lastQuery = q;
+            document.getElementById('dirCount').textContent = '';
+            grid.innerHTML = '<div class="dir-loading"><i class="fas fa-circle-notch fa-spin"></i> Buscando…</div>';
+            pag.style.display = 'none';
+            try {
+                const res = await fetch(`${API}/anime/search?q=${encodeURIComponent(q)}`);
+                const data = await res.json();
+                render(data.data);
+                document.getElementById('dirCount').textContent = `Resultados para "${esc(q)}"`;
+            } catch {
+                grid.innerHTML = '<div class="dir-error">Error en la búsqueda.</div>';
+            }
+        }
+
+        // Cargar géneros reales de la fuente
+        (async () => {
+            try {
+                const res = await fetch(`${API}/anime/genres`);
+                const data = await res.json();
+                if (data.success) {
+                    const sel = document.getElementById('genreSelect');
+                    data.genres.forEach(g => {
+                        const o = document.createElement('option');
+                        o.value = g.slug; o.textContent = g.name;
+                        sel.appendChild(o);
+                    });
+                }
+            } catch {}
+        })();
+
+        ['genreSelect', 'typeSelect', 'orderSelect'].forEach(id => {
+            document.getElementById(id).addEventListener('change', () => { page = 1; loadBrowse(); });
+        });
+        document.getElementById('prevPage').onclick = () => { if (page > 1) { page--; loadBrowse(); window.scrollTo({ top: 0, behavior: 'smooth' }); } };
+        document.getElementById('nextPage').onclick = () => { page++; loadBrowse(); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+
+        const doSearch = () => { const q = document.getElementById('searchInput').value.trim(); if (q) loadSearch(q); else { page = 1; loadBrowse(); } };
+        document.getElementById('searchBtn').onclick = doSearch;
+        document.getElementById('searchInput').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+
+        loadBrowse();
+    </script>
 </body>
 
 </html>

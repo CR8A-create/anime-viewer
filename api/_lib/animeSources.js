@@ -899,29 +899,47 @@ async function searchCards(query) {
     throw new Error(`Búsqueda sin resultados → ${errors.join(' | ')}`);
 }
 
-// id de género Jikan (los usa el <select> del directorio) → slug de AnimeFLV
-const GENRE_MAP = {
-    1: 'accion', 2: 'aventura', 4: 'comedia', 8: 'drama', 10: 'fantasia',
-    22: 'romance', 24: 'ciencia-ficcion', 36: 'recuentos-de-la-vida', 30: 'deportes',
-    // 62 (isekai) no existe en FLV clásico: se resuelve por búsqueda
-};
-const GENRE_NAME = { 62: 'isekai' };
+// Géneros reales de AnimeFLV (slug → etiqueta). Los usa el <select> del
+// directorio; el frontend los pide a /api/anime/genres. Actualizar aquí si
+// AnimeFLV cambia su formulario de /browse.
+const FLV_GENRES = [
+    ['accion', 'Acción'], ['artes-marciales', 'Artes Marciales'], ['aventura', 'Aventuras'],
+    ['carreras', 'Carreras'], ['ciencia-ficcion', 'Ciencia Ficción'], ['comedia', 'Comedia'],
+    ['demencia', 'Demencia'], ['demonios', 'Demonios'], ['deportes', 'Deportes'], ['drama', 'Drama'],
+    ['ecchi', 'Ecchi'], ['escolares', 'Escolares'], ['espacial', 'Espacial'], ['fantasia', 'Fantasía'],
+    ['harem', 'Harem'], ['historico', 'Histórico'], ['infantil', 'Infantil'], ['josei', 'Josei'],
+    ['juegos', 'Juegos'], ['magia', 'Magia'], ['mecha', 'Mecha'], ['militar', 'Militar'],
+    ['misterio', 'Misterio'], ['musica', 'Música'], ['parodia', 'Parodia'], ['policia', 'Policía'],
+    ['psicologico', 'Psicológico'], ['recuentos-de-la-vida', 'Recuentos de la vida'], ['romance', 'Romance'],
+    ['samurai', 'Samurái'], ['seinen', 'Seinen'], ['shoujo', 'Shoujo'], ['shounen', 'Shounen'],
+    ['sobrenatural', 'Sobrenatural'], ['superpoderes', 'Superpoderes'], ['suspenso', 'Suspenso'],
+    ['terror', 'Terror'], ['vampiros', 'Vampiros'],
+];
+const FLV_GENRE_SET = new Set(FLV_GENRES.map(g => g[0]));
+const FLV_TYPES = new Set(['tv', 'movie', 'ova', 'special', 'ona']);
+const FLV_ORDERS = new Set(['default', 'updated', 'added', 'title', 'rating']);
 
-/** Directorio/populares con paginación → { data, pagination } estilo Jikan. */
-async function browseCards(page = 1, genreId = null) {
-    // Género sin slug FLV → tratar como búsqueda por nombre
-    if (genreId && !GENRE_MAP[genreId]) {
-        const name = GENRE_NAME[genreId] || String(genreId);
-        const r = await searchCards(name);
-        return { ...r, pagination: { current_page: 1, has_next_page: false, last_visible_page: 1 } };
-    }
+/**
+ * Directorio de AnimeFLV con filtros reales de su /browse:
+ *   { page, genre(slug), type, status(1=emisión,2=finalizado), order }
+ * order: rating (populares) | updated (recientes) | title (A-Z) | added (nuevos)
+ * Devuelve { data, pagination } estilo Jikan. Fallback a Jikan si FLV cae.
+ */
+async function browseCards(opts = {}) {
+    const page = parseInt(opts.page, 10) || 1;
+    const genre = FLV_GENRE_SET.has(opts.genre) ? opts.genre : null;
+    const type = FLV_TYPES.has(opts.type) ? opts.type : null;
+    const order = FLV_ORDERS.has(opts.order) ? opts.order : 'rating';
+    const status = (opts.status === '1' || opts.status === '2') ? opts.status : null;
 
     const errors = [];
-    // 1) AnimeFLV clásico: catálogo profundo ordenado por rating, 24/página
     if (!breakerOpen('animeflv')) {
         try {
-            const genrePart = genreId ? `genre%5B%5D=${GENRE_MAP[genreId]}&` : '';
-            const { data } = await sourceGet('animeflv', `/browse?${genrePart}order=rating&page=${page}`);
+            const qs = [`order=${order}`, `page=${page}`];
+            if (genre) qs.push(`genre%5B%5D=${genre}`);
+            if (type) qs.push(`type%5B%5D=${type}`);
+            if (status) qs.push(`status%5B%5D=${status}`);
+            const { data } = await sourceGet('animeflv', `/browse?${qs.join('&')}`);
             const $ = cheerio.load(data);
             const base = activeDomain('animeflv');
             const items = [];
@@ -930,7 +948,13 @@ async function browseCards(page = 1, genreId = null) {
                 const href = $el.find('a').attr('href') || '';
                 const title = $el.find('.Title').first().text().trim();
                 if (!href.includes('/anime/') || !title) return;
-                items.push(toCard({ title, slug: href.split('/').pop(), image: absolutize($el.find('img').attr('src'), base) }));
+                const typeLabel = $el.find('.Type').first().text().trim();
+                items.push({
+                    mal_id: href.split('/').pop(),
+                    title,
+                    type: typeLabel || 'Anime',
+                    images: { jpg: { image_url: absolutize($el.find('img').attr('src'), base), large_image_url: absolutize($el.find('img').attr('src'), base) } },
+                });
             });
             if (items.length > 0) {
                 return {
@@ -944,33 +968,10 @@ async function browseCards(page = 1, genreId = null) {
             errors.push(`animeflv: ${e.message}`);
         }
     }
-    // 2) animeflv.ar por popularidad (solo catálogo reciente, sin género)
-    if (!genreId && !breakerOpen('animeflvar')) {
-        try {
-            const { data } = await sourceGet('animeflvar', `/anime/?order=popular&page=${page}`);
-            const $ = cheerio.load(data);
-            const base = activeDomain('animeflvar');
-            const items = [];
-            $('.bsx').each((_, el) => {
-                const $el = $(el);
-                const href = $el.find('a').attr('href') || '';
-                const m = href.match(/\/anime\/([^/]+)\/?$/);
-                const title = flvarCardTitle($el);
-                if (m && title) items.push(toCard({ title, slug: m[1], image: absolutize($el.find('img').attr('src') || $el.find('img').attr('data-src'), base) }));
-            });
-            if (items.length > 0) {
-                return { data: items, source: 'animeflvar', pagination: { current_page: page, has_next_page: items.length >= 24, last_visible_page: page + 1 } };
-            }
-            errors.push('animeflvar: 0 items');
-        } catch (e) {
-            errors.push(`animeflvar: ${e.message}`);
-        }
-    }
-    // 3) Último recurso: Jikan
+    // Fallback: Jikan (sin género FLV; el id de género no aplica aquí)
     try {
-        const path = genreId
-            ? `/v4/anime?genres=${genreId}&page=${page}&limit=24&order_by=members&sort=desc&sfw=true`
-            : `/v4/top/anime?page=${page}&limit=24`;
+        const orderMap = { rating: 'score', updated: 'start_date', added: 'start_date', title: 'title' };
+        const path = `/v4/top/anime?page=${page}&limit=24`;
         const { data } = await jikanGet(path);
         return {
             data: (data.data || []).map(a => ({ mal_id: a.mal_id, title: a.title, type: a.type || 'Anime', images: a.images })),
@@ -1115,6 +1116,6 @@ module.exports = {
     SOURCES, SOURCE_ORDER, health,
     scrapeWithFallback, checkSourcesStatus,
     searchProviders, fetchAnimePage, pickBestMatch, matchScore, slugCandidates,
-    searchCards, browseCards,
+    searchCards, browseCards, FLV_GENRES,
     absolutize, parseJsVar,
 };

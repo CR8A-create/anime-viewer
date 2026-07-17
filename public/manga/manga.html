@@ -98,6 +98,7 @@
             });
 
             chapters = (chData.success && chData.chapters) ? chData.chapters : [];
+            window._mangaLicensed = !!chData.licensed;
             renderCtas();
             renderChapters();
         }
@@ -143,7 +144,13 @@
         function renderChapters() {
             const list = document.getElementById('chapterList');
             if (chapters.length === 0) {
-                list.innerHTML = '<div class="error-box">No hay capítulos en español disponibles todavía.</div>';
+                list.innerHTML = window._mangaLicensed
+                    ? `<div class="error-box" style="line-height:1.7">
+                         Este título está licenciado en español y su versión traducida fue
+                         retirada de MangaDex.<br>Puedes leerlo en la app/web oficial de la editorial.
+                         <br><br>La mayoría de los demás mangas y manhwas sí están disponibles aquí completos.
+                       </div>`
+                    : '<div class="error-box">No hay capítulos en español disponibles todavía.</div>';
                 return;
             }
             const readSet = MiLista.getReadChapters ? MiLista.getReadChapters(listKey) : {};

@@ -8,27 +8,10 @@ anuncios los pone el reproductor, no la página** — no puedo quitarlos desde e
 código porque el contenido del iframe es de otro dominio y está fuera de mi
 control.
 
-Lo que **sí** se puede hacer está en 3 niveles, de menos a más efectivo.
-
-## Nivel 1 — Ya aplicado en la web (sin que hagas nada)
-
-Los reproductores de anime y de pelis ahora llevan un atributo `sandbox` que
-**bloquea lo más molesto**:
-
-- ❌ **Pop-unders / pestañas nuevas** al darle play (los "40 anuncios").
-- ❌ **Redirecciones** que secuestran la pestaña y te mandan a otra web.
-- ✅ El vídeo sigue reproduciéndose con normalidad.
-
-Esto ya reduce muchísimo la molestia por sí solo, en cualquier dispositivo,
-sin instalar nada. (Los anuncios que aún puedan aparecer son banners *dentro*
-del propio reproductor, que solo el reproductor puede quitar.)
-
-> Nota técnica: es `sandbox="allow-scripts allow-same-origin allow-forms
-> allow-presentation allow-pointer-lock"` en los iframes de `ver.html`. Al
-> **no** incluir `allow-popups` ni `allow-top-navigation`, el reproductor no
-> puede abrir pestañas ni cambiar la URL de la página. Si algún día un servidor
-> concreto deja de reproducir por esto, elige otro servidor de la lista (hay
-> varios) — o quita esos dos tokens del sandbox de ese iframe.
+Lo que **sí** se puede hacer está en 2 niveles muy efectivos. (Se probó
+bloquear los anuncios con un `sandbox` en el iframe, pero rompía la mayoría de
+los reproductores —solo funcionaba YourUpload—, así que se retiró: el vídeo es
+prioritario y el bloqueo de verdad se hace por DNS/uBlock, que no interfiere.)
 
 ## Nivel 2 — Bloqueo por DNS (lo mejor para el MÓVIL, gratis)
 

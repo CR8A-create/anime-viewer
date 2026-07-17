@@ -147,9 +147,11 @@ module.exports = async (req, res) => {
             const cached = getCache(cacheKey);
             if (cached) return res.json(cached);
 
-            // La API pagina de 100 en 100; recogemos hasta 500 capítulos.
+            // La API pagina de 100 en 100; recorremos TODO el feed (hasta
+            // 3000 capítulos) para series largas (One Piece, etc.).
             const seen = new Map();
-            for (let offset = 0; offset < 500; offset += 100) {
+            let external = 0;
+            for (let offset = 0; offset < 3000; offset += 100) {
                 const { data } = await mdGet(`/manga/${id}/feed`, {
                     limit: 100,
                     offset,
@@ -159,7 +161,7 @@ module.exports = async (req, res) => {
                     'includes[]': ['scanlation_group'],
                 });
                 for (const c of data.data || []) {
-                    if (c.attributes.externalUrl) continue;       // capítulo en sitio externo, no legible aquí
+                    if (c.attributes.externalUrl) { external++; continue; } // en sitio externo, no legible aquí
                     if (!c.attributes.pages) continue;
                     const num = c.attributes.chapter || '0';
                     // un capítulo por número (evita duplicados de varios grupos)
@@ -176,7 +178,9 @@ module.exports = async (req, res) => {
                 if (offset + 100 >= (data.total || 0)) break;
             }
             const chapters = [...seen.values()].sort((a, b) => parseFloat(a.chapter) - parseFloat(b.chapter));
-            const result = { success: true, chapters };
+            // licensed=true → título con versión ES retirada de MangaDex (solo
+            // quedan enlaces externos). El frontend muestra una nota honesta.
+            const result = { success: true, chapters, licensed: chapters.length === 0 && external > 0 };
             setCache(cacheKey, result, 30 * 60 * 1000);
             return res.json(result);
         }

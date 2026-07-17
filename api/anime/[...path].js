@@ -14,7 +14,7 @@
 // ese archivo — este no debería necesitar cambios.
 // ============================================================
 const { cors, getCache, getStale, setCache } = require('../_lib/shared');
-const { scrapeWithFallback, checkSourcesStatus, searchCards, browseCards } = require('../_lib/animeSources');
+const { scrapeWithFallback, checkSourcesStatus, searchCards, browseCards, FLV_GENRES } = require('../_lib/animeSources');
 
 const TTL = {
     airing: 30 * 60 * 1000,
@@ -144,14 +144,24 @@ module.exports = async (req, res) => {
             }
         }
 
-        // --- TOP / DIRECTORIO (populares, paginado, con género opcional) ---
+        // --- GENRES (lista de géneros para el <select> del directorio) ---
+        if (action === 'genres') {
+            return res.json({ success: true, genres: FLV_GENRES.map(([slug, name]) => ({ slug, name })) });
+        }
+
+        // --- TOP / DIRECTORIO (filtros reales de AnimeFLV) ---
         if (action === 'top') {
-            const page = parseInt(req.query.page, 10) || 1;
-            const genre = req.query.genre || null;
-            const cacheKey = `anime:top:${page}:${genre || 'all'}`;
+            const o = {
+                page: req.query.page,
+                genre: req.query.genre || null,
+                type: req.query.type || null,
+                status: req.query.status || null,
+                order: req.query.order || null,
+            };
+            const cacheKey = `anime:top:${o.page || 1}:${o.genre || '-'}:${o.type || '-'}:${o.status || '-'}:${o.order || 'rating'}`;
             const cached = getCache(cacheKey);
             if (cached) return res.json(cached);
-            const r = await browseCards(page, genre);
+            const r = await browseCards(o);
             const result = { success: true, data: r.data, pagination: r.pagination, source: r.source };
             setCache(cacheKey, result, 30 * 60 * 1000);
             return res.json(result);
