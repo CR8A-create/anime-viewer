@@ -1,75 +1,59 @@
 // ============================================================
-// API DE MANGA — proxy a MangaDex (https://api.mangadex.org)
+// API DE MANGA — ZonaTMO primario, MangaDex de respaldo
 // ------------------------------------------------------------
-// MangaDex es gratis, oficial y tiene traducciones al español
-// (es-la = español latino, es = español de España). Este proxy
-// normaliza las respuestas y cachea para no golpear su API.
-// Las IMÁGENES de páginas se sirven directas desde su CDN
-// (mangadex.network) — el frontend las carga sin pasar por aquí.
+// ZonaTMO (api/_lib/zonatmo.js) tiene manga/manhwa/cómics en español
+// INCLUIDOS los licenciados (One Piece, MHA...) con imágenes en URL
+// plana → lector propio completo. Es la fuente primaria.
+// MangaDex queda como respaldo si ZonaTMO falla.
 //
-// Endpoints:
-//   GET /api/manga/popular?type=manga|manhwa|webtoon&page=0
+// Los ids de ZonaTMO llevan prefijo "zt:"; el enrutado interno decide
+// la fuente por ese prefijo (así conviven con ids antiguos de MangaDex).
+//
+// Endpoints (shapes compatibles con el frontend):
+//   GET /api/manga/popular?type=manga|manhwa|comic&page=1
 //   GET /api/manga/search?q=...
 //   GET /api/manga/info?id=...
-//   GET /api/manga/chapters?id=...            (capítulos en español)
-//   GET /api/manga/pages?chapter=...          (imágenes del capítulo)
+//   GET /api/manga/chapters?id=...
+//   GET /api/manga/pages?chapter=...
 // ============================================================
 const { cors, getCache, setCache } = require('../_lib/shared');
 const axios = require('axios');
-const leercap = require('../_lib/leercapitulo');
+const zt = require('../_lib/zonatmo');
 
+// ---------- MangaDex (respaldo) ----------
 const MD = 'https://api.mangadex.org';
 const ES = ['es-la', 'es'];
-const RATING = ['safe', 'suggestive']; // sin contenido +18
+const RATING = ['safe', 'suggestive'];
 const COVER = 'https://uploads.mangadex.org/covers';
 
 function mdGet(path, params = {}) {
-    // MangaDex exige arrays repetidos (?a[]=x&a[]=y). La serialización de
-    // axios rompe las claves con []; construimos el query string a mano.
     const qs = [];
     for (const [key, val] of Object.entries(params)) {
-        if (Array.isArray(val)) {
-            for (const v of val) qs.push(`${encodeURIComponent(key)}=${encodeURIComponent(v)}`);
-        } else {
-            qs.push(`${encodeURIComponent(key)}=${encodeURIComponent(val)}`);
-        }
+        if (Array.isArray(val)) for (const v of val) qs.push(`${encodeURIComponent(key)}=${encodeURIComponent(v)}`);
+        else qs.push(`${encodeURIComponent(key)}=${encodeURIComponent(val)}`);
     }
-    const url = `${MD}${path}${qs.length ? '?' + qs.join('&') : ''}`;
-    return axios.get(url, {
-        timeout: 9000,
-        headers: { 'User-Agent': 'AniNova/1.0 (personal reader)' },
+    return axios.get(`${MD}${path}${qs.length ? '?' + qs.join('&') : ''}`, {
+        timeout: 9000, headers: { 'User-Agent': 'AniNova/1.0 (personal reader)' },
     });
 }
-
-function pickTitle(attr) {
-    const t = attr.title || {};
-    return t.es || t['es-la'] || t.en || t.ja || Object.values(t)[0] || 'Sin título';
-}
-function pickDesc(attr) {
-    const d = attr.description || {};
-    return d.es || d['es-la'] || d.en || Object.values(d)[0] || '';
-}
-
-function mapManga(item) {
-    const cover = (item.relationships || []).find(r => r.type === 'cover_art');
-    const fileName = cover && cover.attributes && cover.attributes.fileName;
+function mdTitle(a) { const t = a.title || {}; return t.es || t['es-la'] || t.en || t.ja || Object.values(t)[0] || 'Sin título'; }
+function mdDesc(a) { const d = a.description || {}; return d.es || d['es-la'] || d.en || Object.values(d)[0] || ''; }
+function mdCard(item) {
+    const cov = (item.relationships || []).find(r => r.type === 'cover_art');
+    const fn = cov && cov.attributes && cov.attributes.fileName;
+    const badge = item.attributes.originalLanguage === 'ko' ? 'Manhwa' : (item.attributes.originalLanguage === 'zh' ? 'Manhua' : 'Manga');
     return {
-        id: item.id,
-        title: pickTitle(item.attributes),
-        description: pickDesc(item.attributes),
-        status: item.attributes.status,
-        year: item.attributes.year,
-        contentRating: item.attributes.contentRating,
-        originalLanguage: item.attributes.originalLanguage,
+        id: item.id, title: mdTitle(item.attributes), description: mdDesc(item.attributes),
+        status: item.attributes.status, year: item.attributes.year, type: badge,
         tags: (item.attributes.tags || []).map(t => (t.attributes.name.es || t.attributes.name.en)).filter(Boolean),
-        // Portada .512 = miniatura ligera; sin .xxx = completa
-        cover: fileName ? `${COVER}/${item.id}/${fileName}.512.jpg` : null,
-        coverFull: fileName ? `${COVER}/${item.id}/${fileName}` : null,
+        cover: fn ? `${COVER}/${item.id}/${fn}.512.jpg` : null,
+        coverFull: fn ? `${COVER}/${item.id}/${fn}` : null,
     };
 }
+const MD_ORIGIN = { manhwa: ['ko'], webtoon: ['ko'], manga: ['ja'] };
 
-// origin language por tipo de lectura
-const ORIGIN = { manhwa: ['ko'], webtoon: ['ko'], manga: ['ja'] };
+// ¿el id pertenece a ZonaTMO?
+const isZt = (id) => typeof id === 'string' && id.startsWith('zt:');
 
 module.exports = async (req, res) => {
     if (cors(req, res)) return;
@@ -79,26 +63,30 @@ module.exports = async (req, res) => {
     try {
         // --- POPULAR / POR TIPO ---
         if (action === 'popular') {
-            const type = (req.query.type || 'manga').toLowerCase();
-            const page = parseInt(req.query.page, 10) || 0;
-            const cacheKey = `manga:popular:${type}:${page}`;
+            let type = (req.query.type || 'manga').toLowerCase();
+            if (type === 'webtoon') type = 'manhwa';
+            const page = parseInt(req.query.page, 10) || 1;
+            const cacheKey = `manga2:popular:${type}:${page}`;
             const cached = getCache(cacheKey);
             if (cached) return res.json(cached);
 
-            const params = {
-                limit: 24,
-                offset: page * 24,
-                'availableTranslatedLanguage[]': ES,
-                'order[followedCount]': 'desc',
-                'contentRating[]': RATING,
-                'includes[]': ['cover_art'],
-                'hasAvailableChapters': 'true',
-            };
-            if (ORIGIN[type]) params['originalLanguage[]'] = ORIGIN[type];
-
-            const { data } = await mdGet('/manga', params);
-            const result = { success: true, data: (data.data || []).map(mapManga), total: data.total };
-            setCache(cacheKey, result, 60 * 60 * 1000); // 1h
+            let data = [];
+            try { data = await zt.browse(type, page); } catch (e) { console.warn('zt browse:', e.message); }
+            if (data.length === 0) {
+                // Respaldo MangaDex
+                try {
+                    const params = {
+                        limit: 24, offset: (page - 1) * 24,
+                        'availableTranslatedLanguage[]': ES, 'order[followedCount]': 'desc',
+                        'contentRating[]': RATING, 'includes[]': ['cover_art'], 'hasAvailableChapters': 'true',
+                    };
+                    if (MD_ORIGIN[type]) params['originalLanguage[]'] = MD_ORIGIN[type];
+                    const md = await mdGet('/manga', params);
+                    data = (md.data.data || []).map(mdCard);
+                } catch (e) { console.warn('md popular:', e.message); }
+            }
+            const result = { success: true, data };
+            setCache(cacheKey, result, 60 * 60 * 1000);
             return res.json(result);
         }
 
@@ -106,19 +94,22 @@ module.exports = async (req, res) => {
         if (action === 'search') {
             const q = req.query.q || '';
             if (!q) return res.status(400).json({ success: false, message: 'q required' });
-            const cacheKey = `manga:search:${q.toLowerCase()}`;
+            const cacheKey = `manga2:search:${q.toLowerCase()}`;
             const cached = getCache(cacheKey);
             if (cached) return res.json(cached);
 
-            const { data } = await mdGet('/manga', {
-                limit: 24,
-                title: q,
-                'availableTranslatedLanguage[]': ES,
-                'contentRating[]': RATING,
-                'includes[]': ['cover_art'],
-                'order[relevance]': 'desc',
-            });
-            const result = { success: true, data: (data.data || []).map(mapManga) };
+            let data = [];
+            try { data = await zt.search(q); } catch (e) { console.warn('zt search:', e.message); }
+            if (data.length === 0) {
+                try {
+                    const md = await mdGet('/manga', {
+                        limit: 24, title: q, 'availableTranslatedLanguage[]': ES,
+                        'contentRating[]': RATING, 'includes[]': ['cover_art'], 'order[relevance]': 'desc',
+                    });
+                    data = (md.data.data || []).map(mdCard);
+                } catch (e) { console.warn('md search:', e.message); }
+            }
+            const result = { success: true, data };
             setCache(cacheKey, result, 30 * 60 * 1000);
             return res.json(result);
         }
@@ -127,124 +118,97 @@ module.exports = async (req, res) => {
         if (action === 'info') {
             const id = req.query.id || path[1];
             if (!id) return res.status(400).json({ success: false, message: 'id required' });
-            const cacheKey = `manga:info:${id}`;
+            const cacheKey = `manga2:info:${id}`;
             const cached = getCache(cacheKey);
             if (cached) return res.json(cached);
 
+            if (isZt(id)) {
+                const info = await zt.mangaInfo(id);
+                const estado = { publicandose: 'En curso', finalizado: 'Finalizado', cancelado: 'Cancelado', pausado: 'En pausa' };
+                const result = {
+                    success: true,
+                    data: {
+                        id: info.id, title: info.title,
+                        cover: info.cover, coverFull: info.cover,
+                        description: info.description,
+                        status: estado[(info.status || '').toLowerCase()] || info.status,
+                        type: info.type, tags: info.genres || [], author: '',
+                        rating: info.score,
+                    },
+                    _chapters: info.chapters,   // reutilizado por /chapters (evita 2 fetch)
+                };
+                setCache(cacheKey, result, 30 * 60 * 1000);
+                return res.json(result);
+            }
+            // MangaDex
             const { data } = await mdGet(`/manga/${id}`, { 'includes[]': ['cover_art', 'author'] });
-            const manga = mapManga(data.data);
+            const m = mdCard(data.data);
             const author = (data.data.relationships || []).find(r => r.type === 'author');
-            manga.author = author && author.attributes && author.attributes.name;
-            const result = { success: true, data: manga };
+            m.author = author && author.attributes && author.attributes.name;
+            const result = { success: true, data: m };
             setCache(cacheKey, result, 60 * 60 * 1000);
             return res.json(result);
         }
 
-        // --- CAPÍTULOS (en español, ordenados) ---
+        // --- CAPÍTULOS ---
         if (action === 'chapters') {
             const id = req.query.id || path[1];
             if (!id) return res.status(400).json({ success: false, message: 'id required' });
-            const cacheKey = `manga:chapters:${id}`;
+            const cacheKey = `manga2:chapters:${id}`;
             const cached = getCache(cacheKey);
             if (cached) return res.json(cached);
 
-            // La API pagina de 100 en 100; recorremos TODO el feed (hasta
-            // 3000 capítulos) para series largas (One Piece, etc.).
+            if (isZt(id)) {
+                // Reutiliza la ficha cacheada si existe (info trae _chapters)
+                const infoCached = getCache(`manga2:info:${id}`);
+                let list = infoCached && infoCached._chapters;
+                if (!list) list = (await zt.mangaInfo(id)).chapters;
+                const chapters = list.map(c => ({ id: c.id, chapter: c.number, title: c.title, pages: null, lang: 'es' }));
+                const result = { success: true, chapters };
+                setCache(cacheKey, result, 30 * 60 * 1000);
+                return res.json(result);
+            }
+            // MangaDex
             const seen = new Map();
             let external = 0;
             for (let offset = 0; offset < 3000; offset += 100) {
                 const { data } = await mdGet(`/manga/${id}/feed`, {
-                    limit: 100,
-                    offset,
-                    'translatedLanguage[]': ES,
-                    'contentRating[]': RATING,
-                    'order[chapter]': 'asc',
-                    'includes[]': ['scanlation_group'],
+                    limit: 100, offset, 'translatedLanguage[]': ES, 'contentRating[]': RATING,
+                    'order[chapter]': 'asc', 'includes[]': ['scanlation_group'],
                 });
                 for (const c of data.data || []) {
-                    if (c.attributes.externalUrl) { external++; continue; } // en sitio externo, no legible aquí
+                    if (c.attributes.externalUrl) { external++; continue; }
                     if (!c.attributes.pages) continue;
                     const num = c.attributes.chapter || '0';
-                    // un capítulo por número (evita duplicados de varios grupos)
-                    if (!seen.has(num)) {
-                        seen.set(num, {
-                            id: c.id,
-                            chapter: num,
-                            title: c.attributes.title || '',
-                            pages: c.attributes.pages,
-                            lang: c.attributes.translatedLanguage,
-                        });
-                    }
+                    if (!seen.has(num)) seen.set(num, { id: c.id, chapter: num, title: c.attributes.title || '', pages: c.attributes.pages, lang: c.attributes.translatedLanguage });
                 }
                 if (offset + 100 >= (data.total || 0)) break;
             }
             const chapters = [...seen.values()].sort((a, b) => parseFloat(a.chapter) - parseFloat(b.chapter));
-            // licensed=true → título con versión ES retirada de MangaDex (solo
-            // quedan enlaces externos). El frontend muestra una nota honesta.
             const result = { success: true, chapters, licensed: chapters.length === 0 && external > 0 };
             setCache(cacheKey, result, 30 * 60 * 1000);
             return res.json(result);
         }
 
-        // --- PÁGINAS de un capítulo ---
+        // --- PÁGINAS ---
         if (action === 'pages') {
             const chapter = req.query.chapter || path[1];
             if (!chapter) return res.status(400).json({ success: false, message: 'chapter required' });
-            const cacheKey = `manga:pages:${chapter}`;
+            const cacheKey = `manga2:pages:${chapter}`;
             const cached = getCache(cacheKey);
             if (cached) return res.json(cached);
 
-            const { data } = await mdGet(`/at-home/server/${chapter}`);
-            const base = data.baseUrl;
-            const hash = data.chapter.hash;
-            // data = calidad alta; dataSaver = comprimido (más rápido en móvil)
-            const pages = (data.chapter.data || []).map(f => `${base}/data/${hash}/${f}`);
-            const pagesSaver = (data.chapter.dataSaver || []).map(f => `${base}/data-saver/${hash}/${f}`);
-            const result = { success: true, pages, pagesSaver };
-            setCache(cacheKey, result, 20 * 60 * 1000);
-            return res.json(result);
-        }
-
-        // --- FALLBACK EXTERNO (leercapitulo): capítulos de títulos que
-        //     MangaDex no tiene en español (One Piece, MHA, JJK...) ---
-        if (action === 'extchapters') {
-            const title = req.query.title || '';
-            if (!title) return res.status(400).json({ success: false, message: 'title required' });
-            const cacheKey = `manga:ext:${title.toLowerCase()}`;
-            const cached = getCache(cacheKey);
-            if (cached) return res.json(cached);
-
-            const results = await leercap.search(title);
-            const best = leercap.pickBest(title, results);
-            if (!best) {
-                const empty = { success: false, message: 'No encontrado en la fuente externa' };
-                setCache(cacheKey, empty, 30 * 60 * 1000);
-                return res.json(empty);
+            if (isZt(chapter)) {
+                const pages = await zt.pages(chapter);
+                const result = { success: true, pages };
+                setCache(cacheKey, result, 20 * 60 * 1000);
+                return res.json(result);
             }
-            const info = await leercap.chapters(best.path);
-            const result = {
-                success: true,
-                source: 'leercapitulo',
-                title: info.title || best.title,
-                cover: info.cover || best.thumbnail,
-                chapters: info.chapters,   // [{ number, title, path }]
-            };
-            setCache(cacheKey, result, 30 * 60 * 1000);
-            return res.json(result);
-        }
-
-        // --- PÁGINAS externas: intenta lector propio; si no, URL externa ---
-        if (action === 'extpages') {
-            const p = req.query.cpath;
-            if (!p) return res.status(400).json({ success: false, message: 'cpath required' });
-            const cacheKey = `manga:extpages:${p}`;
-            const cached = getCache(cacheKey);
-            if (cached) return res.json(cached);
-
-            const out = await leercap.pages(p);
-            const result = out.pages
-                ? { success: true, pages: out.pages }
-                : { success: true, external: true, externalUrl: out.externalUrl };
+            // MangaDex
+            const { data } = await mdGet(`/at-home/server/${chapter}`);
+            const base = data.baseUrl, hash = data.chapter.hash;
+            const pages = (data.chapter.data || []).map(f => `${base}/data/${hash}/${f}`);
+            const result = { success: true, pages };
             setCache(cacheKey, result, 20 * 60 * 1000);
             return res.json(result);
         }

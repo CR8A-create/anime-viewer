@@ -5,16 +5,16 @@ const API = (location.hostname === 'localhost' || location.hostname === '127.0.0
     : `https://${VERCEL_PROJECT}.vercel.app/api`;
 
 let currentType = 'manga';
-let currentPage = 0;
+let currentPage = 1;
 let searchMode = false;
 
 function cardHtml(m) {
-    const badge = m.originalLanguage === 'ko' ? 'Manhwa' : (m.originalLanguage === 'zh' ? 'Manhua' : 'Manga');
+    const badge = m.type || (m.originalLanguage === 'ko' ? 'Manhwa' : 'Manga');
     return `
-        <div class="manga-card" onclick="openManga('${m.id}')">
+        <div class="manga-card" onclick="openManga('${encodeURIComponent(m.id)}')">
             ${m.cover ? `<img src="${m.cover}" alt="${escapeAttr(m.title)}" loading="lazy" referrerpolicy="no-referrer">` : ''}
             <div class="card-info">
-                <span class="badge">${badge}</span>
+                <span class="badge">${escapeHtml(badge)}</span>
                 <h4>${escapeHtml(m.title)}</h4>
             </div>
         </div>`;
@@ -63,18 +63,18 @@ async function doSearch(q) {
 document.addEventListener('DOMContentLoaded', () => {
     if (document.body.dataset.page !== 'manga-home') return;
 
-    loadPopular(currentType, 0, false);
+    loadPopular(currentType, 1, false);
 
     document.querySelectorAll('.type-tab').forEach(tab => {
         tab.onclick = () => {
             document.querySelectorAll('.type-tab').forEach(t => t.classList.remove('active'));
             tab.classList.add('active');
             currentType = tab.dataset.type;
-            currentPage = 0;
+            currentPage = 1;
             searchMode = false;
             document.getElementById('sectionTitle').innerHTML = `<i class="fas fa-fire"></i> Populares`;
             document.getElementById('searchInput').value = '';
-            loadPopular(currentType, 0, false);
+            loadPopular(currentType, 1, false);
         };
     });
 

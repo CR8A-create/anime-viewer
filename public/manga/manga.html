@@ -42,7 +42,7 @@
 
     <footer>
         <p><strong>Aviso importante</strong><br>
-        Lectura vía MangaDex · Proyecto personal sin ánimo de lucro · No alojamos archivos<br>
+        Lectura vía ZonaTMO y MangaDex · Proyecto personal sin ánimo de lucro · No alojamos archivos<br>
         © 2025 – 2026 AniNova – Todos los derechos pertenecen a sus autores y editoriales.</p>
     </footer>
 
@@ -59,7 +59,7 @@
         function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
         function openReader(chId) {
             const t = (manga && manga.title) ? `&title=${encodeURIComponent(manga.title)}` : '';
-            location.href = `leer.html?manga=${id}&chapter=${encodeURIComponent(chId)}${t}`;
+            location.href = `leer.html?manga=${encodeURIComponent(id)}&chapter=${encodeURIComponent(chId)}${t}`;
         }
 
         async function init() {
@@ -67,8 +67,8 @@
             let info, chData;
             try {
                 [info, chData] = await Promise.all([
-                    fetch(`${API}/manga/info?id=${id}`).then(r => r.json()),
-                    fetch(`${API}/manga/chapters?id=${id}`).then(r => r.json()),
+                    fetch(`${API}/manga/info?id=${encodeURIComponent(id)}`).then(r => r.json()),
+                    fetch(`${API}/manga/chapters?id=${encodeURIComponent(id)}`).then(r => r.json()),
                 ]);
             } catch { document.getElementById('title').textContent = 'Error de conexión.'; return; }
 
@@ -81,10 +81,11 @@
                 document.getElementById('heroBg').style.backgroundImage = `url('${manga.coverFull}')`;
             }
             const meta = document.getElementById('metaRow');
-            const badge = manga.originalLanguage === 'ko' ? 'Manhwa' : (manga.originalLanguage === 'zh' ? 'Manhua' : 'Manga');
+            const badge = manga.type || (manga.originalLanguage === 'ko' ? 'Manhwa' : 'Manga');
             const estado = { ongoing: 'En curso', completed: 'Completo', hiatus: 'En pausa', cancelled: 'Cancelado' }[manga.status] || manga.status;
-            meta.innerHTML = `<span class="chip">${badge}</span>`;
-            if (estado) meta.innerHTML += `<span class="meta-item"><i class="fas fa-circle-info"></i>${estado}</span>`;
+            meta.innerHTML = `<span class="chip">${esc(badge)}</span>`;
+            if (estado) meta.innerHTML += `<span class="meta-item"><i class="fas fa-circle-info"></i>${esc(estado)}</span>`;
+            if (manga.rating) meta.innerHTML += `<span class="meta-item"><i class="fas fa-star"></i>${esc(manga.rating)}</span>`;
             if (manga.year) meta.innerHTML += `<span class="meta-item"><i class="fas fa-calendar"></i>${manga.year}</span>`;
             if (manga.author) meta.innerHTML += `<span class="meta-item"><i class="fas fa-pen"></i>${esc(manga.author)}</span>`;
 
@@ -101,21 +102,6 @@
             });
 
             chapters = (chData.success && chData.chapters) ? chData.chapters : [];
-            window._mangaLicensed = !!chData.licensed;
-            window._extSource = null;
-
-            // Fallback: si MangaDex no tiene capítulos ES (licenciado), buscar
-            // en la fuente externa (leercapitulo) por título.
-            if (chapters.length === 0) {
-                try {
-                    const ext = await fetch(`${API}/manga/extchapters?title=${encodeURIComponent(manga.title)}`).then(r => r.json());
-                    if (ext.success && ext.chapters.length > 0) {
-                        window._extSource = ext.source;
-                        // Normalizar al mismo shape (chapter/id) que MangaDex
-                        chapters = ext.chapters.map(c => ({ chapter: c.number, id: 'ext:' + c.path, title: c.title, pages: null, external: true }));
-                    }
-                } catch { /* fuente externa caída */ }
-            }
 
             renderCtas();
             renderChapters();
@@ -153,7 +139,7 @@
             };
             paint();
             fav.onclick = () => {
-                MiLista.toggleFav({ key: listKey, title: manga.title, image: manga.cover || manga.coverFull || '', url: `manga.html?id=${id}`, kind: 'manga' });
+                MiLista.toggleFav({ key: listKey, title: manga.title, image: manga.cover || manga.coverFull || '', url: `manga.html?id=${encodeURIComponent(id)}`, kind: 'manga' });
                 paint();
             };
             cta.appendChild(fav);
@@ -162,34 +148,23 @@
         function renderChapters() {
             const list = document.getElementById('chapterList');
             if (chapters.length === 0) {
-                list.innerHTML = window._mangaLicensed
-                    ? `<div class="error-box" style="line-height:1.7">
-                         Este título está licenciado en español y su versión traducida fue
-                         retirada de MangaDex.<br>Puedes leerlo en la app/web oficial de la editorial.
-                         <br><br>La mayoría de los demás mangas y manhwas sí están disponibles aquí completos.
-                       </div>`
-                    : '<div class="error-box">No hay capítulos en español disponibles todavía.</div>';
+                list.innerHTML = '<div class="error-box">No hay capítulos en español disponibles todavía.</div>';
                 return;
             }
             const readSet = MiLista.getReadChapters ? MiLista.getReadChapters(listKey) : {};
             list.innerHTML = '';
-            // Aviso de fuente externa
-            if (window._extSource) {
-                const note = document.createElement('div');
-                note.style.cssText = 'color:var(--text3);font-size:.82rem;margin-bottom:12px;line-height:1.6';
-                note.innerHTML = `<i class="fas fa-circle-info" style="color:var(--accent)"></i> Este título no está en MangaDex en español; capítulos servidos desde una fuente externa.`;
-                list.appendChild(note);
-            }
             // Más recientes primero
             [...chapters].reverse().forEach(c => {
                 const row = document.createElement('div');
                 row.className = 'chapter-row' + (readSet[c.chapter] ? ' read' : '');
                 row.onclick = () => openReader(c.id);
-                const sub = c.external ? 'Fuente externa' : `${c.pages} páginas · ${c.lang === 'es-la' ? 'Español latino' : 'Español'}`;
+                const sub = c.pages ? `${c.pages} páginas · ${c.lang === 'es-la' ? 'Español latino' : 'Español'}` : 'Español';
+                // Nombre extra del capítulo (quita el "Capítulo N" repetido)
+                const extra = (c.title || '').replace(/^\s*cap[ií]tulo\s*[\d.]+\s*/i, '').trim();
                 row.innerHTML = `
                     <div class="ch-num">${c.chapter}</div>
                     <div class="ch-info">
-                        <div class="ch-title">Capítulo ${c.chapter}${c.title && !c.external ? ' · ' + esc(c.title) : ''}</div>
+                        <div class="ch-title">Capítulo ${c.chapter}${extra ? ' · ' + esc(extra) : ''}</div>
                         <div class="ch-sub">${sub}</div>
                     </div>
                     <i class="fas fa-chevron-right ch-arrow"></i>`;

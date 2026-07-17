@@ -34,26 +34,16 @@
         const params = new URLSearchParams(location.search);
         const mangaId = params.get('manga');
         let chapterId = params.get('chapter');
-        const extTitle = params.get('title');      // presente en modo externo
-        const isExternal = String(chapterId).startsWith('ext:');
         const listKey = 'manga-' + mangaId;
         let chapters = [];
 
-        document.getElementById('backBtn').onclick = () => location.href = `manga.html?id=${mangaId}`;
+        document.getElementById('backBtn').onclick = () => location.href = `manga.html?id=${encodeURIComponent(mangaId)}`;
 
         async function loadChaptersList() {
             try {
-                if (isExternal) {
-                    const res = await fetch(`${API}/manga/extchapters?title=${encodeURIComponent(extTitle || '')}`);
-                    const data = await res.json();
-                    chapters = (data.success && data.chapters)
-                        ? data.chapters.map(c => ({ chapter: c.number, id: 'ext:' + c.path, title: c.title, external: true }))
-                        : [];
-                } else {
-                    const res = await fetch(`${API}/manga/chapters?id=${mangaId}`);
-                    const data = await res.json();
-                    chapters = (data.success && data.chapters) ? data.chapters : [];
-                }
+                const res = await fetch(`${API}/manga/chapters?id=${encodeURIComponent(mangaId)}`);
+                const data = await res.json();
+                chapters = (data.success && data.chapters) ? data.chapters : [];
             } catch { chapters = []; }
             const sel = document.getElementById('chapterSelect');
             sel.innerHTML = '';
@@ -89,26 +79,7 @@
             }
 
             try {
-                let data;
-                if (isExternal) {
-                    const cpath = chapterId.slice(4); // quita "ext:"
-                    data = await fetch(`${API}/manga/extpages?cpath=${encodeURIComponent(cpath)}`).then(r => r.json());
-                    if (data.success && data.external) {
-                        // Lector propio aún no descifra esta fuente → abrir en origen
-                        cont.innerHTML = `
-                            <div class="reader-loading" style="padding:70px 20px">
-                                <p style="margin-bottom:18px;color:#ccc">Este título se sirve desde una fuente externa que aún no podemos mostrar dentro del lector.</p>
-                                <a href="${data.externalUrl}" target="_blank" rel="noopener noreferrer"
-                                   style="display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:var(--on-accent);padding:13px 26px;border-radius:8px;font-weight:800;text-decoration:none">
-                                   <i class="fas fa-up-right-from-square"></i> Abrir capítulo en la fuente
-                                </a>
-                            </div>`;
-                        updateNav();
-                        return;
-                    }
-                } else {
-                    data = await fetch(`${API}/manga/pages?chapter=${chapterId}`).then(r => r.json());
-                }
+                const data = await fetch(`${API}/manga/pages?chapter=${encodeURIComponent(chapterId)}`).then(r => r.json());
                 if (!data.success || !data.pages || !data.pages.length) {
                     cont.innerHTML = '<div class="error-box" style="color:#ccc;padding:60px">No se pudieron cargar las páginas de este capítulo.</div>';
                 } else {
