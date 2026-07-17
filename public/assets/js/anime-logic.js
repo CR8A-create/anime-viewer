@@ -207,7 +207,8 @@ let currentFilter = { type: 'all' }; // { type: 'all' | 'genre' | 'letter', valu
 
 async function fetchAllAnime(container, page = 1) {
     try {
-        const response = await fetch(`${API_URL}/top/anime?page=${page}&limit=24`);
+        // Vía backend multi-fuente (Jikan da 504 con frecuencia)
+        const response = await fetch(`${BACKEND_URL}/anime/top?page=${page}`);
         const data = await response.json();
         if (data.data && data.data.length > 0) {
             renderAnimeGrid(data.data, container);
@@ -237,7 +238,7 @@ async function fetchAiringAnime(container) {
 async function fetchAnimeByGenre(genreId, container, page = 1) {
     try {
         if (container) container.innerHTML = '<div class="loading">Filtrando por género...</div>';
-        const response = await fetch(`${API_URL}/anime?genres=${genreId}&page=${page}&limit=24`);
+        const response = await fetch(`${BACKEND_URL}/anime/top?page=${page}&genre=${genreId}`);
         const data = await response.json();
         if (data.data && data.data.length > 0) {
             renderAnimeGrid(data.data, container);
@@ -271,8 +272,8 @@ function filterByLetter(letter) {
     currentFilter = { type: 'letter', value: letter };
     currentPage = 1;
 
-    // Fetch anime starting with letter
-    fetch(`${API_URL}/anime?q=${letter}&page=1&limit=24`)
+    // Fetch anime starting with letter (vía backend multi-fuente)
+    fetch(`${BACKEND_URL}/anime/search?q=${letter}`)
         .then(res => res.json())
         .then(data => {
             if (data.data && data.data.length > 0) {
@@ -344,7 +345,7 @@ function goToPage(page) {
             break;
         case 'letter':
             directoryGrid.innerHTML = '<div class="loading">Cargando...</div>';
-            fetch(`${API_URL}/anime?q=${currentFilter.value}&page=${page}&limit=24`)
+            fetch(`${BACKEND_URL}/anime/search?q=${currentFilter.value}`)
                 .then(res => res.json())
                 .then(data => {
                     if (data.data && data.data.length > 0) {
@@ -406,7 +407,7 @@ let popularAnimePage = 1;
 
 async function fetchTopAnime(page = 1, append = false) {
     try {
-        const data = await cachedFetch(`top_anime_p${page}`, `${API_URL}/top/anime?filter=bypopularity&limit=12&page=${page}`);
+        const data = await cachedFetch(`top_anime_v2_p${page}`, `${BACKEND_URL}/anime/top?page=${page}`);
 
         if (data.data && data.data.length > 0) {
             if (append && popularGrid) {
@@ -464,7 +465,7 @@ async function handleSearch() {
         if (pagination) pagination.innerHTML = '';
 
         try {
-            const response = await fetch(`${API_URL}/anime?q=${query}&limit=24`);
+            const response = await fetch(`${BACKEND_URL}/anime/search?q=${encodeURIComponent(query)}`);
             const data = await response.json();
 
             if (data.data && data.data.length > 0) {
@@ -487,9 +488,13 @@ async function handleSearch() {
     if (recentHeader) recentHeader.textContent = `Resultados para: ${query}`;
 
     try {
-        const response = await fetch(`${API_URL}/anime?q=${query}&limit=20`);
+        const response = await fetch(`${BACKEND_URL}/anime/search?q=${encodeURIComponent(query)}`);
         const data = await response.json();
-        renderAnimeGrid(data.data, recentGrid);
+        if (data.data && data.data.length > 0) {
+            renderAnimeGrid(data.data, recentGrid);
+        } else if (recentGrid) {
+            recentGrid.innerHTML = '<p class="error">No se encontraron resultados.</p>';
+        }
     } catch (error) {
         console.error('Error searching:', error);
         if (recentGrid) recentGrid.innerHTML = '<p class="error">Error en la búsqueda.</p>';

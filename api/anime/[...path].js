@@ -14,7 +14,7 @@
 // ese archivo — este no debería necesitar cambios.
 // ============================================================
 const { cors, getCache, getStale, setCache } = require('../_lib/shared');
-const { scrapeWithFallback, checkSourcesStatus } = require('../_lib/animeSources');
+const { scrapeWithFallback, checkSourcesStatus, searchCards, browseCards } = require('../_lib/animeSources');
 
 const TTL = {
     airing: 30 * 60 * 1000,
@@ -123,6 +123,37 @@ module.exports = async (req, res) => {
 
             const result = { success: true, servers, source: r.source };
             setCache(cacheKey, result, TTL.videos);
+            return res.json(result);
+        }
+
+        // --- SEARCH (buscador del frontend; antes iba directo a Jikan) ---
+        if (action === 'search') {
+            const q = req.query.q || '';
+            if (!q) return res.status(400).json({ success: false, message: 'q required' });
+            const cacheKey = `anime:search:${q.toLowerCase()}`;
+            const cached = getCache(cacheKey);
+            if (cached) return res.json(cached);
+            try {
+                const r = await searchCards(q);
+                const result = { success: true, data: r.data, source: r.source };
+                setCache(cacheKey, result, 30 * 60 * 1000);
+                return res.json(result);
+            } catch (e) {
+                console.warn(`[anime] search "${q}": ${e.message}`);
+                return res.json({ success: true, data: [] });
+            }
+        }
+
+        // --- TOP / DIRECTORIO (populares, paginado, con género opcional) ---
+        if (action === 'top') {
+            const page = parseInt(req.query.page, 10) || 1;
+            const genre = req.query.genre || null;
+            const cacheKey = `anime:top:${page}:${genre || 'all'}`;
+            const cached = getCache(cacheKey);
+            if (cached) return res.json(cached);
+            const r = await browseCards(page, genre);
+            const result = { success: true, data: r.data, pagination: r.pagination, source: r.source };
+            setCache(cacheKey, result, 30 * 60 * 1000);
             return res.json(result);
         }
 
