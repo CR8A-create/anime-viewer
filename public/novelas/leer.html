@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leyendo - AniNova</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../assets/css/novelas-theme.css">
+</head>
+<body class="reader-body" data-page="novela-reader">
+    <div class="reader-bar">
+        <button class="back" id="backBtn"><i class="fas fa-arrow-left"></i> Ficha</button>
+        <span class="r-title" id="rTitle">Cargando…</span>
+        <select id="chapterSelect"></select>
+        <button class="size-btn" onclick="changeFont(-1)" title="Letra más pequeña">A-</button>
+        <button class="size-btn" onclick="changeFont(1)" title="Letra más grande">A+</button>
+    </div>
+
+    <article class="reader-content" id="content">
+        <div class="reader-loading"><div class="spin"></div><p style="margin-top:16px">Cargando capítulo…</p></div>
+    </article>
+
+    <div class="reader-nav">
+        <button id="prevBtn" disabled><i class="fas fa-chevron-left"></i> Anterior</button>
+        <button id="nextBtn" disabled>Siguiente <i class="fas fa-chevron-right"></i></button>
+    </div>
+
+    <script src="../assets/js/mi-lista.js?v=1"></script>
+    <script>
+        const VERCEL_PROJECT = 'pagina-ver-anime';
+        const API = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+            ? 'http://localhost:3000/api'
+            : `https://${VERCEL_PROJECT}.vercel.app/api`;
+
+        const params = new URLSearchParams(location.search);
+        const novelId = params.get('novela');
+        let chapterId = params.get('chapter');
+        const listKey = 'novela-' + novelId;
+        let chapters = [];
+
+        document.getElementById('backBtn').onclick = () => location.href = `novela.html?id=${novelId}`;
+
+        // Tamaño de letra persistente
+        let fs = parseFloat(localStorage.getItem('anv_reader_fs') || '1.12');
+        applyFont();
+        function applyFont() { document.documentElement.style.setProperty('--reader-fs', fs + 'rem'); }
+        function changeFont(dir) {
+            fs = Math.min(1.6, Math.max(0.85, fs + dir * 0.08));
+            localStorage.setItem('anv_reader_fs', fs);
+            applyFont();
+        }
+
+        async function loadList() {
+            try {
+                const res = await fetch(`${API}/novels/info?id=${novelId}`);
+                const data = await res.json();
+                chapters = (data.success && data.chapters) ? data.chapters : [];
+            } catch { chapters = []; }
+            const sel = document.getElementById('chapterSelect');
+            sel.innerHTML = '';
+            chapters.forEach(c => {
+                const o = document.createElement('option');
+                o.value = c.id;
+                o.textContent = `Cap. ${c.number} · ${c.title}`;
+                sel.appendChild(o);
+            });
+            sel.value = chapterId;
+            sel.onchange = () => { chapterId = sel.value; loadChapter(); };
+        }
+
+        function idx() { return chapters.findIndex(c => String(c.id) === String(chapterId)); }
+
+        async function loadChapter() {
+            const cont = document.getElementById('content');
+            cont.innerHTML = '<div class="reader-loading"><div class="spin"></div><p style="margin-top:16px">Cargando capítulo…</p></div>';
+            window.scrollTo(0, 0);
+            document.getElementById('chapterSelect').value = chapterId;
+
+            try {
+                const res = await fetch(`${API}/novels/chapter?id=${chapterId}`);
+                const data = await res.json();
+                if (!data.success) throw new Error();
+                const ch = data.chapter;
+                document.getElementById('rTitle').textContent = `Cap. ${ch.number}`;
+                cont.innerHTML = `<h1>Capítulo ${ch.number}${ch.title ? ' · ' + escHtml(ch.title) : ''}</h1>` + sanitize(ch.content);
+                try {
+                    MiLista.setMangaProgress(listKey, ch.number);
+                    MiLista.markChapterRead(listKey, ch.number);
+                    MiLista.pushHistory({ key: listKey, title: document.title.replace(' - AniNova',''), image: '', label: `Cap. ${ch.number}`, url: `leer.html?novela=${novelId}&chapter=${chapterId}`, kind: 'novela' });
+                } catch {}
+            } catch {
+                cont.innerHTML = '<div class="error-box" style="padding:60px">No se pudo cargar este capítulo.</div>';
+            }
+            updateNav();
+        }
+
+        function escHtml(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+
+        // El contenido viene en HTML de SkyNovels: dejamos solo etiquetas de texto
+        function sanitize(html) {
+            const tpl = document.createElement('template');
+            tpl.innerHTML = html;
+            tpl.content.querySelectorAll('script, style, iframe, img, a').forEach(n => n.remove());
+            // envolver texto suelto en párrafos por saltos de línea
+            let out = tpl.innerHTML;
+            if (!/<p[\s>]/i.test(out)) {
+                out = out.split(/\r?\n\r?\n|\r\n/).filter(t => t.trim()).map(t => `<p>${t}</p>`).join('');
+            }
+            return out;
+        }
+
+        function updateNav() {
+            const i = idx();
+            const prev = document.getElementById('prevBtn');
+            const next = document.getElementById('nextBtn');
+            prev.disabled = i <= 0;
+            next.disabled = i < 0 || i >= chapters.length - 1;
+            prev.onclick = () => { if (i > 0) { chapterId = chapters[i - 1].id; loadChapter(); } };
+            next.onclick = () => { if (i < chapters.length - 1) { chapterId = chapters[i + 1].id; loadChapter(); } };
+        }
+
+        (async () => { await loadList(); loadChapter(); })();
+    </script>
+</body>
+</html>

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Novelas Ligeras - AniNova</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../assets/css/novelas-theme.css">
+</head>
+<body data-page="novelas-home">
+    <header>
+        <div class="header-inner">
+            <div class="logo"><a href="../index.html"><h1>Ani<span class="hl">Nova</span> Novelas</h1></a></div>
+            <div class="search-bar">
+                <input type="text" id="searchInput" placeholder="Buscar novela...">
+                <button id="searchBtn"><i class="fas fa-search"></i></button>
+            </div>
+            <nav><ul>
+                <li><a href="../anime/index.html">Anime</a></li>
+                <li><a href="../manga/index.html">Manga</a></li>
+                <li><a href="../movies/index.html">Pelis/Series</a></li>
+            </ul></nav>
+        </div>
+    </header>
+
+    <main class="container section">
+        <div class="section-header"><h3 id="sectionTitle"><i class="fas fa-feather-pointed"></i> Novelas en Español</h3></div>
+        <div class="novel-grid" id="novelGrid"></div>
+        <div class="load-more-wrap">
+            <button class="load-more" id="loadMore" style="display:none"><i class="fas fa-plus"></i> Ver más</button>
+        </div>
+    </main>
+
+    <footer>
+        <p><strong>Aviso importante</strong><br>
+        Lectura vía SkyNovels (traducciones de su comunidad) · Proyecto personal sin ánimo de lucro<br>
+        © 2025 – 2026 AniNova – Todos los derechos pertenecen a sus autores y traductores.</p>
+    </footer>
+
+    <script>
+        const VERCEL_PROJECT = 'pagina-ver-anime';
+        const API = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+            ? 'http://localhost:3000/api'
+            : `https://${VERCEL_PROJECT}.vercel.app/api`;
+        let page = 1;
+
+        function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+        function card(n) {
+            return `
+                <div class="novel-card" onclick="location.href='novela.html?id=${n.id}'">
+                    ${n.cover ? `<img src="${n.cover}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}
+                    <div class="card-info">
+                        <span class="badge">${n.chapters || '?'} caps</span>
+                        <h4>${esc(n.title)}</h4>
+                    </div>
+                </div>`;
+        }
+
+        async function load(p, append) {
+            const grid = document.getElementById('novelGrid');
+            if (!append) grid.innerHTML = Array(12).fill('<div class="skeleton"></div>').join('');
+            try {
+                const res = await fetch(`${API}/novels/popular?page=${p}`);
+                const data = await res.json();
+                if (!data.success || !data.data.length) {
+                    if (!append) grid.innerHTML = '<div class="error-box">No se pudo cargar el catálogo.</div>';
+                    return;
+                }
+                const html = data.data.map(card).join('');
+                if (append) grid.insertAdjacentHTML('beforeend', html);
+                else grid.innerHTML = html;
+                document.getElementById('loadMore').style.display = data.data.length >= 24 ? 'flex' : 'none';
+            } catch {
+                if (!append) grid.innerHTML = '<div class="error-box">Error de conexión.</div>';
+            }
+        }
+
+        async function search(q) {
+            const grid = document.getElementById('novelGrid');
+            document.getElementById('sectionTitle').innerHTML = `<i class="fas fa-search"></i> Resultados: ${esc(q)}`;
+            document.getElementById('loadMore').style.display = 'none';
+            grid.innerHTML = Array(6).fill('<div class="skeleton"></div>').join('');
+            try {
+                const res = await fetch(`${API}/novels/search?q=${encodeURIComponent(q)}`);
+                const data = await res.json();
+                grid.innerHTML = (data.success && data.data.length)
+                    ? data.data.map(card).join('')
+                    : '<div class="error-box">Sin resultados.</div>';
+            } catch {
+                grid.innerHTML = '<div class="error-box">Error de conexión.</div>';
+            }
+        }
+
+        load(1, false);
+        document.getElementById('loadMore').onclick = () => { page++; load(page, true); };
+        const doIt = () => { const q = document.getElementById('searchInput').value.trim(); if (q) search(q); };
+        document.getElementById('searchBtn').onclick = doIt;
+        document.getElementById('searchInput').addEventListener('keydown', e => { if (e.key === 'Enter') doIt(); });
+    </script>
+</body>
+</html>

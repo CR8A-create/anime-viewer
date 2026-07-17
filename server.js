@@ -64,6 +64,13 @@ app.all(['/api/manga/:action', '/api/manga/:action/:p1'], (req, res) => {
     return mangaApiHandler(req, res);
 });
 
+// Novelas ligeras (proxy a SkyNovels)
+const novelsApiHandler = require('./api/novels/[...path].js');
+app.all(['/api/novels/:action', '/api/novels/:action/:p1'], (req, res) => {
+    req.query.path = [req.params.action, req.params.p1].filter(Boolean);
+    return novelsApiHandler(req, res);
+});
+
 // Simple in-memory cache
 const cache = new Map();
 const CACHE_DURATION = 15 * 60 * 1000; // 15 minutes (anime data barely changes)
