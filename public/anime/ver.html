@@ -534,8 +534,12 @@
 
         <!-- Video player -->
         <div class="video-wrapper">
+            <!-- sandbox SIN allow-popups ni allow-top-navigation: bloquea los
+                 popunders y los redirects que secuestran la pestaña. El vídeo
+                 sigue funcionando con allow-scripts + allow-same-origin. -->
             <iframe id="videoPlayer" src="" frameborder="0"
-                allow="autoplay; fullscreen; picture-in-picture"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock"
+                allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
                 allowfullscreen></iframe>
             <div id="placeholderMessage" class="placeholder-message">
                 <i class="fas fa-film"></i>
