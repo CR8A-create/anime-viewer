@@ -16,36 +16,6 @@
 const { cors, getCache, getStale, setCache } = require('../_lib/shared');
 const { scrapeWithFallback, checkSourcesStatus, searchCards, browseCards, FLV_GENRES } = require('../_lib/animeSources');
 
-// ============================================================
-// FIABILIDAD DE HOSTS DE VIDEO
-// ------------------------------------------------------------
-// Muchos hosts (VidGuard, Voe, Netu, StreamSB) bloquean el
-// embebido fuera de su dominio → pantalla negra. Otros embeben
-// limpio (YourUpload, Okru, Mp4upload, HLS propio, Streamtape).
-// Ordenamos para que el que carga por defecto sea uno FIABLE,
-// y además priorizamos Latino. El usuario puede elegir cualquiera.
-// ============================================================
-const HOST_RANK = [
-    // rank 0 — embeben bien casi siempre
-    [/hls|zilla|maru|filemoon|okru|ok\.ru|yourupload|your upload|mp4upload|streamtape|stape|uqload/i, 0],
-    // rank 1 — suelen ir
-    [/vidhide|streamwish|swish|doodstream|dood|mixdrop|amus|sbfull|vidcloud/i, 1],
-    // rank 2 — a menudo pantalla negra al hotlinkear
-    [/vidguard|vgfplay|voe|netu|streamsb|embedsb|streamsb|mega|mail/i, 2],
-];
-function hostScore(server) {
-    const hay = `${server.name} ${server.url}`;
-    for (const [re, score] of HOST_RANK) if (re.test(hay)) return score;
-    return 1; // desconocido: en el medio
-}
-/** Ordena: Latino primero; dentro de cada idioma, hosts fiables primero. */
-function rankServers(servers) {
-    return servers
-        .map((s, i) => ({ s, i, lat: s.lang === 'lat' ? 0 : 1, host: hostScore(s) }))
-        .sort((a, b) => (a.lat - b.lat) || (a.host - b.host) || (a.i - b.i))
-        .map(x => x.s);
-}
-
 const TTL = {
     airing: 30 * 60 * 1000,
     recent: 10 * 60 * 1000,
@@ -147,7 +117,9 @@ module.exports = async (req, res) => {
             }
             if (r.stale) return res.json(r.staleResponse);
 
-            const servers = rankServers(r.data);
+            const servers = r.data;
+            // Latino primero (comportamiento original)
+            servers.sort((a, b) => (a.lang === 'lat' ? -1 : 1) - (b.lang === 'lat' ? -1 : 1));
 
             const result = { success: true, servers, source: r.source };
             setCache(cacheKey, result, TTL.videos);
