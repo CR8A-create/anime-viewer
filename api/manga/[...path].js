@@ -19,6 +19,7 @@
 const { cors, getCache, setCache } = require('../_lib/shared');
 const axios = require('axios');
 const zt = require('../_lib/zonatmo');
+const ml = require('../_lib/mangalect');
 
 // ---------- MangaDex (respaldo) ----------
 const MD = 'https://api.mangadex.org';
@@ -52,8 +53,9 @@ function mdCard(item) {
 }
 const MD_ORIGIN = { manhwa: ['ko'], webtoon: ['ko'], manga: ['ja'] };
 
-// ¿el id pertenece a ZonaTMO?
+// ¿a qué fuente pertenece el id?
 const isZt = (id) => typeof id === 'string' && id.startsWith('zt:');
+const isMl = (id) => typeof id === 'string' && id.startsWith('ml:');
 
 module.exports = async (req, res) => {
     if (cors(req, res)) return;
@@ -72,6 +74,9 @@ module.exports = async (req, res) => {
 
             let data = [];
             try { data = await zt.browse(type, page); } catch (e) { console.warn('zt browse:', e.message); }
+            if (data.length === 0) {
+                try { data = await ml.browse(type, page); } catch (e) { console.warn('ml browse:', e.message); }
+            }
             if (data.length === 0) {
                 // Respaldo MangaDex
                 try {
@@ -101,6 +106,9 @@ module.exports = async (req, res) => {
             let data = [];
             try { data = await zt.search(q); } catch (e) { console.warn('zt search:', e.message); }
             if (data.length === 0) {
+                try { data = await ml.search(q); } catch (e) { console.warn('ml search:', e.message); }
+            }
+            if (data.length === 0) {
                 try {
                     const md = await mdGet('/manga', {
                         limit: 24, title: q, 'availableTranslatedLanguage[]': ES,
@@ -122,8 +130,8 @@ module.exports = async (req, res) => {
             const cached = getCache(cacheKey);
             if (cached) return res.json(cached);
 
-            if (isZt(id)) {
-                const info = await zt.mangaInfo(id);
+            if (isZt(id) || isMl(id)) {
+                const info = await (isZt(id) ? zt : ml).mangaInfo(id);
                 const estado = { publicandose: 'En curso', finalizado: 'Finalizado', cancelado: 'Cancelado', pausado: 'En pausa' };
                 const result = {
                     success: true,
@@ -158,11 +166,11 @@ module.exports = async (req, res) => {
             const cached = getCache(cacheKey);
             if (cached) return res.json(cached);
 
-            if (isZt(id)) {
+            if (isZt(id) || isMl(id)) {
                 // Reutiliza la ficha cacheada si existe (info trae _chapters)
                 const infoCached = getCache(`manga2:info:${id}`);
                 let list = infoCached && infoCached._chapters;
-                if (!list) list = (await zt.mangaInfo(id)).chapters;
+                if (!list) list = (await (isZt(id) ? zt : ml).mangaInfo(id)).chapters;
                 const chapters = list.map(c => ({ id: c.id, chapter: c.number, title: c.title, pages: null, lang: 'es' }));
                 const result = { success: true, chapters };
                 setCache(cacheKey, result, 30 * 60 * 1000);
@@ -198,19 +206,44 @@ module.exports = async (req, res) => {
             const cached = getCache(cacheKey);
             if (cached) return res.json(cached);
 
-            if (isZt(chapter)) {
-                const pages = await zt.pages(chapter);
+            if (isZt(chapter) || isMl(chapter)) {
+                const pages = await (isZt(chapter) ? zt : ml).pages(chapter);
                 const result = { success: true, pages };
                 setCache(cacheKey, result, 20 * 60 * 1000);
                 return res.json(result);
             }
-            // MangaDex
+            // MangaDex — sus URLs de at-home EXPIRAN (~15 min): TTL corto,
+            // si se cachean más tiempo el lector recibe 404 en las imágenes.
             const { data } = await mdGet(`/at-home/server/${chapter}`);
             const base = data.baseUrl, hash = data.chapter.hash;
             const pages = (data.chapter.data || []).map(f => `${base}/data/${hash}/${f}`);
             const result = { success: true, pages };
-            setCache(cacheKey, result, 20 * 60 * 1000);
+            setCache(cacheKey, result, 5 * 60 * 1000);
             return res.json(result);
+        }
+
+        // --- STATUS (diagnóstico de fuentes en producción) ---
+        if (action === 'status') {
+            const out = {};
+            const probes = [
+                ['zonatmo', async () => (await zt.browse('manga', 1)).length],
+                ['mangalect', async () => (await ml.browse('manga', 1)).length],
+                ['mangadex', async () => {
+                    const md = await mdGet('/manga', { limit: 1, 'availableTranslatedLanguage[]': ES, 'contentRating[]': RATING });
+                    return (md.data.data || []).length;
+                }],
+            ];
+            await Promise.all(probes.map(async ([name, fn]) => {
+                const t0 = Date.now();
+                try {
+                    const n = await fn();
+                    out[name] = { ok: n > 0, items: n, ms: Date.now() - t0 };
+                } catch (e) {
+                    const st = e.response && e.response.status;
+                    out[name] = { ok: false, error: (st ? `HTTP ${st} — ` : '') + e.message, ms: Date.now() - t0 };
+                }
+            }));
+            return res.json({ success: true, sources: out });
         }
 
         return res.status(404).json({ success: false, message: 'Endpoint not found' });

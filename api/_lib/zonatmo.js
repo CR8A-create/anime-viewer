@@ -18,16 +18,36 @@ const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 
 function zGet(path, referer) {
     const url = path.startsWith('http') ? path : B + path;
-    return axios.get(url, {
+    const config = {
         timeout: 12000,
         headers: {
+            // Cabeceras completas de navegador real: zonatmo funciona en local
+            // pero desde el datacenter de Vercel puede exigir más señales.
             'User-Agent': UA,
-            'Accept-Language': 'es-ES,es;q=0.9',
-            'Accept': 'text/html,application/xhtml+xml',
+            'Accept-Language': 'es-ES,es;q=0.9,en;q=0.7',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
             'Referer': referer || B + '/',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'same-origin',
+            'Sec-Fetch-User': '?1',
+            'sec-ch-ua': '"Chromium";v="125", "Google Chrome";v="125", "Not.A/Brand";v="24"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"Windows"',
+            'Cache-Control': 'max-age=0',
         },
         maxRedirects: 5,
-    });
+    };
+    // Proxy opcional (env PROXY_URL) por si el datacenter está bloqueado
+    if (process.env.PROXY_URL) {
+        try {
+            const { HttpsProxyAgent } = require('https-proxy-agent');
+            config.httpsAgent = new HttpsProxyAgent(process.env.PROXY_URL);
+        } catch { /* sin proxy */ }
+    }
+    return axios.get(url, config);
 }
 
 // URL absoluta zonatmo → id "zt:<ruta>" y viceversa
