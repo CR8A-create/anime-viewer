@@ -57,7 +57,10 @@
         let manga = null, chapters = [];
 
         function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
-        function openReader(chId) { location.href = `leer.html?manga=${id}&chapter=${chId}`; }
+        function openReader(chId) {
+            const t = (manga && manga.title) ? `&title=${encodeURIComponent(manga.title)}` : '';
+            location.href = `leer.html?manga=${id}&chapter=${encodeURIComponent(chId)}${t}`;
+        }
 
         async function init() {
             if (!id) { location.href = 'index.html'; return; }
@@ -99,6 +102,21 @@
 
             chapters = (chData.success && chData.chapters) ? chData.chapters : [];
             window._mangaLicensed = !!chData.licensed;
+            window._extSource = null;
+
+            // Fallback: si MangaDex no tiene capítulos ES (licenciado), buscar
+            // en la fuente externa (leercapitulo) por título.
+            if (chapters.length === 0) {
+                try {
+                    const ext = await fetch(`${API}/manga/extchapters?title=${encodeURIComponent(manga.title)}`).then(r => r.json());
+                    if (ext.success && ext.chapters.length > 0) {
+                        window._extSource = ext.source;
+                        // Normalizar al mismo shape (chapter/id) que MangaDex
+                        chapters = ext.chapters.map(c => ({ chapter: c.number, id: 'ext:' + c.path, title: c.title, pages: null, external: true }));
+                    }
+                } catch { /* fuente externa caída */ }
+            }
+
             renderCtas();
             renderChapters();
         }
@@ -154,17 +172,25 @@
                 return;
             }
             const readSet = MiLista.getReadChapters ? MiLista.getReadChapters(listKey) : {};
-            // Más recientes primero
             list.innerHTML = '';
+            // Aviso de fuente externa
+            if (window._extSource) {
+                const note = document.createElement('div');
+                note.style.cssText = 'color:var(--text3);font-size:.82rem;margin-bottom:12px;line-height:1.6';
+                note.innerHTML = `<i class="fas fa-circle-info" style="color:var(--accent)"></i> Este título no está en MangaDex en español; capítulos servidos desde una fuente externa.`;
+                list.appendChild(note);
+            }
+            // Más recientes primero
             [...chapters].reverse().forEach(c => {
                 const row = document.createElement('div');
                 row.className = 'chapter-row' + (readSet[c.chapter] ? ' read' : '');
                 row.onclick = () => openReader(c.id);
+                const sub = c.external ? 'Fuente externa' : `${c.pages} páginas · ${c.lang === 'es-la' ? 'Español latino' : 'Español'}`;
                 row.innerHTML = `
                     <div class="ch-num">${c.chapter}</div>
                     <div class="ch-info">
-                        <div class="ch-title">Capítulo ${c.chapter}${c.title ? ' · ' + esc(c.title) : ''}</div>
-                        <div class="ch-sub">${c.pages} páginas · ${c.lang === 'es-la' ? 'Español latino' : 'Español'}</div>
+                        <div class="ch-title">Capítulo ${c.chapter}${c.title && !c.external ? ' · ' + esc(c.title) : ''}</div>
+                        <div class="ch-sub">${sub}</div>
                     </div>
                     <i class="fas fa-chevron-right ch-arrow"></i>`;
                 list.appendChild(row);

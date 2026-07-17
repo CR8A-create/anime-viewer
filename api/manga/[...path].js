@@ -16,6 +16,7 @@
 // ============================================================
 const { cors, getCache, setCache } = require('../_lib/shared');
 const axios = require('axios');
+const leercap = require('../_lib/leercapitulo');
 
 const MD = 'https://api.mangadex.org';
 const ES = ['es-la', 'es'];
@@ -200,6 +201,50 @@ module.exports = async (req, res) => {
             const pages = (data.chapter.data || []).map(f => `${base}/data/${hash}/${f}`);
             const pagesSaver = (data.chapter.dataSaver || []).map(f => `${base}/data-saver/${hash}/${f}`);
             const result = { success: true, pages, pagesSaver };
+            setCache(cacheKey, result, 20 * 60 * 1000);
+            return res.json(result);
+        }
+
+        // --- FALLBACK EXTERNO (leercapitulo): capítulos de títulos que
+        //     MangaDex no tiene en español (One Piece, MHA, JJK...) ---
+        if (action === 'extchapters') {
+            const title = req.query.title || '';
+            if (!title) return res.status(400).json({ success: false, message: 'title required' });
+            const cacheKey = `manga:ext:${title.toLowerCase()}`;
+            const cached = getCache(cacheKey);
+            if (cached) return res.json(cached);
+
+            const results = await leercap.search(title);
+            const best = leercap.pickBest(title, results);
+            if (!best) {
+                const empty = { success: false, message: 'No encontrado en la fuente externa' };
+                setCache(cacheKey, empty, 30 * 60 * 1000);
+                return res.json(empty);
+            }
+            const info = await leercap.chapters(best.path);
+            const result = {
+                success: true,
+                source: 'leercapitulo',
+                title: info.title || best.title,
+                cover: info.cover || best.thumbnail,
+                chapters: info.chapters,   // [{ number, title, path }]
+            };
+            setCache(cacheKey, result, 30 * 60 * 1000);
+            return res.json(result);
+        }
+
+        // --- PÁGINAS externas: intenta lector propio; si no, URL externa ---
+        if (action === 'extpages') {
+            const p = req.query.cpath;
+            if (!p) return res.status(400).json({ success: false, message: 'cpath required' });
+            const cacheKey = `manga:extpages:${p}`;
+            const cached = getCache(cacheKey);
+            if (cached) return res.json(cached);
+
+            const out = await leercap.pages(p);
+            const result = out.pages
+                ? { success: true, pages: out.pages }
+                : { success: true, external: true, externalUrl: out.externalUrl };
             setCache(cacheKey, result, 20 * 60 * 1000);
             return res.json(result);
         }
