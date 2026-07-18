@@ -25,6 +25,21 @@ function snGet(path) {
     });
 }
 
+/** Catálogo COMPLETO: la API capa limit a 100 → se piden todas las páginas. */
+async function fetchFullCatalog() {
+    const first = (await snGet('/novels?page=1&limit=100')).data;
+    let all = first.novels || [];
+    const total = first.total || all.length;
+    const pages = Math.ceil(total / 100);
+    if (pages > 1) {
+        const rest = await Promise.all(
+            Array.from({ length: pages - 1 }, (_, i) => snGet(`/novels?page=${i + 2}&limit=100`).then(r => r.data.novels || []).catch(() => []))
+        );
+        for (const chunk of rest) all = all.concat(chunk);
+    }
+    return all;
+}
+
 function mapNovel(n) {
     return {
         id: n.id,
@@ -68,14 +83,65 @@ module.exports = async (req, res) => {
             const cached = getCache(cacheKey);
             if (cached) return res.json(cached);
 
-            // SkyNovels no tiene endpoint de búsqueda abierto; traemos un lote
-            // amplio y filtramos por título/autor (el catálogo es manejable).
-            const { data } = await snGet(`/novels?page=1&limit=300`);
-            const list = (data.novels || []).map(mapNovel)
+            // SkyNovels no tiene endpoint de búsqueda abierto; traemos el
+            // catálogo completo y filtramos por título/autor.
+            const list = (await fetchFullCatalog()).map(mapNovel)
                 .filter(n => n.title.toLowerCase().includes(q) || (n.writer || '').toLowerCase().includes(q))
                 .slice(0, 24);
             const result = { success: true, data: list };
             setCache(cacheKey, result, 30 * 60 * 1000);
+            return res.json(result);
+        }
+
+        // --- DIRECTORIO (filtros/orden en memoria sobre el catálogo) ---
+        // SkyNovels no filtra server-side: traemos el catálogo completo
+        // (cacheado 1h) y filtramos aquí. ~475 novelas, es barato.
+        if (action === 'directory') {
+            const q = (req.query.q || '').toLowerCase();
+            const status = (req.query.status || '').toLowerCase();   // active|finished|paused
+            const order = req.query.order || 'recent';               // recent|rating|views|chapters
+            const page = parseInt(req.query.page, 10) || 1;
+            const cacheKey = `novels:dir:${q}:${status}:${order}:${page}`;
+            const cached = getCache(cacheKey);
+            if (cached) return res.json(cached);
+
+            let all = getCache('novels:catalog');
+            if (!all) {
+                const raw = await fetchFullCatalog();
+                all = raw.map(n => ({ ...mapNovel(n), views: n.nvl_views_count || 0, updatedAt: n.nvl_last_update || 0 }));
+                setCache('novels:catalog', all, 60 * 60 * 1000);
+            }
+            let list = all;
+            if (q) list = list.filter(n => n.title.toLowerCase().includes(q) || (n.writer || '').toLowerCase().includes(q));
+            if (status) list = list.filter(n => String(n.status).toLowerCase() === status);
+            const orders = {
+                recent: (a, b) => (b.updatedAt || 0) - (a.updatedAt || 0),
+                rating: (a, b) => (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0),
+                views: (a, b) => (b.views || 0) - (a.views || 0),
+                chapters: (a, b) => (b.chapters || 0) - (a.chapters || 0),
+            };
+            list = [...list].sort(orders[order] || orders.recent);
+            const PER = 24;
+            const totalPages = Math.max(1, Math.ceil(list.length / PER));
+            const result = {
+                success: true,
+                data: list.slice((page - 1) * PER, page * PER),
+                page, totalPages, total: list.length,
+            };
+            setCache(cacheKey, result, 30 * 60 * 1000);
+            return res.json(result);
+        }
+
+        // --- NOVEDADES (para el carrusel: últimas actualizadas) ---
+        if (action === 'latest') {
+            const cached = getCache('novels:latest');
+            if (cached) return res.json(cached);
+            const list = (await fetchFullCatalog())
+                .sort((a, b) => (b.nvl_last_update || 0) - (a.nvl_last_update || 0))
+                .slice(0, 12)
+                .map(mapNovel);
+            const result = { success: true, data: list };
+            setCache('novels:latest', result, 30 * 60 * 1000);
             return res.json(result);
         }
 

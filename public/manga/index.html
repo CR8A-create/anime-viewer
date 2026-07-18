@@ -17,6 +17,7 @@
                 <button id="searchBtn"><i class="fas fa-search"></i></button>
             </div>
             <nav><ul>
+                <li><a href="directorio.html">Directorio</a></li>
                 <li><a href="../anime/index.html">Anime</a></li>
                 <li><a href="../movies/index.html">Pelis/Series</a></li>
                 <li><a href="../novelas/index.html">Novelas</a></li>
@@ -25,10 +26,16 @@
         </div>
     </header>
 
+    <!-- Carrusel de novedades -->
+    <section id="mangaCarousel" style="position:relative;max-width:1200px;margin:18px auto 6px;padding:0 20px;display:none">
+        <div id="mcTrack" style="position:relative;height:240px;border-radius:14px;overflow:hidden;background:#10141a"></div>
+        <div id="mcDots" style="display:flex;gap:8px;justify-content:center;margin-top:10px"></div>
+    </section>
+
     <div class="type-tabs container">
         <button class="type-tab active" data-type="manga"><i class="fas fa-book-open"></i> Manga</button>
         <button class="type-tab" data-type="manhwa"><i class="fas fa-dragon"></i> Manhwa</button>
-        <button class="type-tab" data-type="comic"><i class="fas fa-mask"></i> Cómics</button>
+        <button class="type-tab" data-type="manhua"><i class="fas fa-yin-yang"></i> Manhua</button>
     </div>
 
     <main class="container section">
@@ -41,10 +48,10 @@
 
     <footer>
         <p><strong>Aviso importante</strong><br>
-        Lectura vía ZonaTMO y MangaDex · Proyecto personal sin ánimo de lucro · No alojamos archivos<br>
+        Lectura vía ZonaTMO, MangaLect y MangaDex · Proyecto personal sin ánimo de lucro · No alojamos archivos<br>
         © 2025 – 2026 AniNova – Todos los derechos pertenecen a sus autores y editoriales.</p>
     </footer>
 
-    <script src="../assets/js/manga-logic.js?v=2"></script>
+    <script src="../assets/js/manga-logic.js?v=3"></script>
 </body>
 </html>

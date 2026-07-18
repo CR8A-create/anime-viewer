@@ -82,7 +82,16 @@
             try {
                 const data = await fetch(`${API}/manga/pages?chapter=${encodeURIComponent(chapterId)}`).then(r => r.json());
                 if (!data.success || !data.pages || !data.pages.length) {
-                    cont.innerHTML = '<div class="error-box" style="color:#ccc;padding:60px">No se pudieron cargar las páginas de este capítulo.</div>';
+                    // Fallback: ZonaTMO abre bien desde el navegador del usuario
+                    const t = new URLSearchParams(location.search).get('title') || '';
+                    cont.innerHTML = `
+                        <div class="error-box" style="color:#ccc;padding:40px 20px 10px">No se pudieron cargar las páginas de este capítulo.</div>
+                        <div style="text-align:center;padding-bottom:40px">
+                            <a href="https://zonatmo.org/biblioteca?title=${encodeURIComponent(t)}" target="_blank" rel="noopener"
+                               style="display:inline-block;background:#2b8a5c;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:700">
+                                <i class="fas fa-external-link-alt"></i> Leer en ZonaTMO
+                            </a>
+                        </div>`;
                 } else {
                     // SIN loading="lazy": las páginas miden 0px hasta cargar y el
                     // lazy nativo nunca las considera visibles → jamás cargaban.

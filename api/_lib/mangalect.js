@@ -70,6 +70,38 @@ async function search(q) {
     return (data.resultados || []).map(card);
 }
 
+/** Directorio con filtros (query, tipo, géneros por id CSV, página). */
+async function directory({ q = '', tipo = '', generos = '', page = 1 } = {}) {
+    const params = new URLSearchParams();
+    if (q) params.set('query', q);
+    if (tipo && tipo !== 'todos') params.set('tipo', tipo);
+    if (generos) params.set('generos', generos);
+    params.set('page', page);
+    params.set('page_size', 24);
+    const { data } = await mlGet(`/api/buscar_mangas/?${params}`, true);
+    return {
+        items: (data.resultados || []).map(card),
+        page: data.page || page,
+        totalPages: data.total_pages || 1,
+        total: data.total_results || 0,
+    };
+}
+
+/** Lista de géneros (id + nombre), deduplicada por nombre normalizado. */
+async function genres() {
+    const { data } = await mlGet('/api/generos/', true);
+    const seen = new Set();
+    const out = [];
+    for (const g of (Array.isArray(data) ? data : [])) {
+        const norm = String(g.nombre || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+        if (!norm || seen.has(norm)) continue;
+        seen.add(norm);
+        out.push({ id: g.id, name: g.nombre });
+    }
+    out.sort((a, b) => a.name.localeCompare(b.name, 'es'));
+    return out;
+}
+
 /** Ficha + capítulos (id "ml:info/{slug}"). */
 async function mangaInfo(id) {
     const url = toUrl(id);
@@ -116,4 +148,4 @@ async function pages(id) {
     return found;
 }
 
-module.exports = { browse, search, mangaInfo, pages, toId, toUrl, B };
+module.exports = { browse, search, directory, genres, mangaInfo, pages, toId, toUrl, B };

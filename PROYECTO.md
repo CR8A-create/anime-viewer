@@ -103,7 +103,17 @@ public/
   TTL de caché 5 min (si se sube, el lector da 404).
 - **leercapitulo.co** (`api/_lib/leercapitulo.js`): legacy, imágenes cifradas,
   no se usa.
-- Endpoints: `/api/manga/popular?type=|search?q=|info?id=|chapters?id=|pages?chapter=|status`.
+- Endpoints: `/api/manga/popular?type=|search?q=|info?id=|chapters?id=|pages?chapter=|status`,
+  más `directory?q=&type=&genre=&page=` (Mangalect; el género se filtra por
+  NOMBRE, no por id), `genres` (lista deduplicada) y `latest` (novedades para
+  el carrusel; Mangalect ordena por más nuevo por defecto).
+- Pestañas del index: Manga/Manhwa/**Manhua** (Cómics se quitó: ninguna fuente
+  con lector propio los tiene con contenido). `manga/directorio.html` = filtros
+  tipo+género+búsqueda con paginación.
+- Fallback externo: cuando una ficha no tiene capítulos, la búsqueda no
+  encuentra algo o el lector no carga páginas, se muestra botón "Leer/Buscar
+  en ZonaTMO" (zonatmo.org/biblioteca?title=) — el navegador del USUARIO sí
+  entra aunque el servidor esté bloqueado (Solo Leveling, TBATE, cómics...).
 - `GET /api/manga/status` sondea las 3 fuentes en vivo (ok/error/latencia) —
   usar para diagnosticar producción.
 - El handler enruta por prefijo del id: `zt:` → ZonaTMO, `ml:` → Mangalect,
@@ -116,6 +126,11 @@ public/
 - **SkyNovels** (`api.skynovels.net/api`): API REST pública. Catálogo, ficha con
   volúmenes/capítulos (excluye VIP), y contenido de capítulo (texto HTML, se
   limpian marcas de agua invisibles). Lector de texto con tamaño de letra.
+- OJO: su API capa `limit` a 100 → `fetchFullCatalog()` pagina hasta el total
+  (~475) y se cachea 1h. `directory?q=&status=&order=recent|rating|views|chapters&page=`
+  filtra/ordena en memoria; `latest` = últimas actualizadas (carrusel).
+- `novelas/directorio.html` = filtros estado+orden+búsqueda con paginación;
+  carrusel de novedades en el index (igual que manga).
 
 ## CUENTAS DE USUARIO — `api/auth` + `public/cuenta.html` (julio 2026)
 Login "anónimo sin serlo": **usuario + contraseña + edad**, sin email. La edad

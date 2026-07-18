@@ -222,6 +222,39 @@ module.exports = async (req, res) => {
             return res.json(result);
         }
 
+        // --- DIRECTORIO (Mangalect: filtros por tipo/género/búsqueda) ---
+        if (action === 'directory') {
+            const { q = '', type = '', genre = '' } = req.query;
+            const page = parseInt(req.query.page, 10) || 1;
+            const cacheKey = `manga2:dir:${q}:${type}:${genre}:${page}`;
+            const cached = getCache(cacheKey);
+            if (cached) return res.json(cached);
+            const dir = await ml.directory({ q, tipo: type, generos: genre, page });
+            const result = { success: true, ...dir };
+            setCache(cacheKey, result, 30 * 60 * 1000);
+            return res.json(result);
+        }
+
+        // --- GÉNEROS (para los filtros del directorio) ---
+        if (action === 'genres') {
+            const cached = getCache('manga2:genres');
+            if (cached) return res.json(cached);
+            const list = await ml.genres();
+            const result = { success: true, genres: list };
+            setCache('manga2:genres', result, 24 * 60 * 60 * 1000);
+            return res.json(result);
+        }
+
+        // --- NOVEDADES (para el carrusel; Mangalect ordena por más nuevo) ---
+        if (action === 'latest') {
+            const cached = getCache('manga2:latest');
+            if (cached) return res.json(cached);
+            const dir = await ml.directory({ page: 1 });
+            const result = { success: true, data: dir.items.slice(0, 12) };
+            setCache('manga2:latest', result, 30 * 60 * 1000);
+            return res.json(result);
+        }
+
         // --- STATUS (diagnóstico de fuentes en producción) ---
         if (action === 'status') {
             const out = {};

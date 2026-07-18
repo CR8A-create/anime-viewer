@@ -14,6 +14,7 @@
             <div class="logo"><a href="../index.html"><h1>Ani<span class="hl">Nova</span> Manga</h1></a></div>
             <nav><ul>
                 <li><a href="index.html">Catálogo</a></li>
+                <li><a href="directorio.html">Directorio</a></li>
                 <li><a href="../anime/index.html">Anime</a></li>
                 <li><a href="../movies/index.html">Pelis/Series</a></li>
                 <li><a href="../novelas/index.html">Novelas</a></li>
@@ -155,10 +156,25 @@
             cta.appendChild(fav);
         }
 
+        // Enlace externo a ZonaTMO: su web sí abre desde el navegador del
+        // usuario aunque nuestro servidor no pueda scrapearla (bloqueo 403
+        // a IPs de datacenter). Fallback cuando aquí no hay contenido.
+        function zonatmoUrl() {
+            return `https://zonatmo.org/biblioteca?title=${encodeURIComponent((manga && manga.title) || '')}`;
+        }
+
         function renderChapters() {
             const list = document.getElementById('chapterList');
             if (chapters.length === 0) {
-                list.innerHTML = '<div class="error-box">No hay capítulos en español disponibles todavía.</div>';
+                list.innerHTML = `
+                    <div class="error-box">No hay capítulos en español disponibles en nuestras fuentes.</div>
+                    <div style="text-align:center;padding:16px">
+                        <a href="${zonatmoUrl()}" target="_blank" rel="noopener"
+                           style="display:inline-block;background:#2b8a5c;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:700">
+                            <i class="fas fa-external-link-alt"></i> Leer en ZonaTMO
+                        </a>
+                        <p style="color:#888;font-size:.8rem;margin-top:8px">Se abre en su web oficial (suele tener este título completo)</p>
+                    </div>`;
                 return;
             }
             const readSet = MiLista.getReadChapters ? MiLista.getReadChapters(listKey) : {};

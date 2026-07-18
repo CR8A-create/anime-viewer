@@ -17,6 +17,7 @@
                 <button id="searchBtn"><i class="fas fa-search"></i></button>
             </div>
             <nav><ul>
+                <li><a href="directorio.html">Directorio</a></li>
                 <li><a href="../anime/index.html">Anime</a></li>
                 <li><a href="../manga/index.html">Manga</a></li>
                 <li><a href="../movies/index.html">Pelis/Series</a></li>
@@ -24,6 +25,12 @@
             </ul></nav>
         </div>
     </header>
+
+    <!-- Carrusel de novedades -->
+    <section id="novelCarousel" style="position:relative;max-width:1200px;margin:18px auto 6px;padding:0 20px;display:none">
+        <div id="ncTrack" style="position:relative;height:240px;border-radius:14px;overflow:hidden;background:#151209"></div>
+        <div id="ncDots" style="display:flex;gap:8px;justify-content:center;margin-top:10px"></div>
+    </section>
 
     <main class="container section">
         <div class="section-header"><h3 id="sectionTitle"><i class="fas fa-feather-pointed"></i> Novelas en Español</h3></div>
@@ -93,6 +100,43 @@
             }
         }
 
+        // ---------- CARRUSEL DE NOVEDADES ----------
+        let ncIndex = 0, ncItems = [], ncTimer = null;
+        function ncRender() {
+            const track = document.getElementById('ncTrack');
+            const dots = document.getElementById('ncDots');
+            if (!track || !ncItems.length) return;
+            const n = ncItems[ncIndex];
+            track.innerHTML = `
+                <div onclick="location.href='novela.html?id=${n.id}'" style="cursor:pointer;position:absolute;inset:0">
+                    ${n.cover ? `<div style="position:absolute;inset:0;background:url('${n.cover}') center 25%/cover;filter:blur(22px) brightness(.35)"></div>` : ''}
+                    <div style="position:relative;display:flex;gap:20px;align-items:center;padding:20px 26px;height:100%">
+                        ${n.cover ? `<img src="${n.cover}" referrerpolicy="no-referrer" alt="" style="height:200px;aspect-ratio:2/3;object-fit:cover;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.6)">` : ''}
+                        <div style="min-width:0">
+                            <span style="background:#d19a2f;color:#1a1408;font-size:.7rem;font-weight:800;text-transform:uppercase;padding:3px 10px;border-radius:4px">Actualizada · ${n.chapters || '?'} caps</span>
+                            <h2 style="color:#fff;font-size:1.5rem;margin-top:10px;line-height:1.25">${esc(n.title)}</h2>
+                            <p style="color:#b8a67f;font-size:.85rem;margin-top:8px"><i class="fas fa-feather-pointed"></i> Toca para ver la ficha y leer</p>
+                        </div>
+                    </div>
+                </div>`;
+            dots.innerHTML = ncItems.map((_, i) =>
+                `<button onclick="ncGo(${i})" style="width:9px;height:9px;border-radius:50%;border:none;cursor:pointer;background:${i === ncIndex ? '#d19a2f' : '#3a3527'}"></button>`).join('');
+        }
+        function ncGo(i) { ncIndex = i; ncRender(); ncRestart(); }
+        function ncRestart() { clearInterval(ncTimer); ncTimer = setInterval(() => { ncIndex = (ncIndex + 1) % ncItems.length; ncRender(); }, 6000); }
+        async function loadNovelCarousel() {
+            try {
+                const res = await fetch(`${API}/novels/latest`);
+                const data = await res.json();
+                if (!data.success || !data.data.length) return;
+                ncItems = data.data.slice(0, 8);
+                document.getElementById('novelCarousel').style.display = 'block';
+                ncRender();
+                ncRestart();
+            } catch { /* sin carrusel */ }
+        }
+
+        loadNovelCarousel();
         load(1, false);
         document.getElementById('loadMore').onclick = () => { page++; load(page, true); };
         const doIt = () => { const q = document.getElementById('searchInput').value.trim(); if (q) search(q); };
