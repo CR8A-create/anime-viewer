@@ -71,6 +71,21 @@ app.all(['/api/novels/:action', '/api/novels/:action/:p1'], (req, res) => {
     return novelsApiHandler(req, res);
 });
 
+// Cuentas de usuario (mismo handler serverless que producción)
+const authApiHandler = require('./api/auth/[...path].js');
+app.all(['/api/auth/:action', '/api/auth/:action/:p1'], (req, res) => {
+    req.query.path = [req.params.action, req.params.p1].filter(Boolean);
+    return authApiHandler(req, res);
+});
+
+// Comentarios: handler serverless de producción (Firestore o memoria).
+// Registrado ANTES que las rutas legacy de comentarios de abajo.
+const commentsApiHandler = require('./api/comments/[contentId].js');
+app.all('/api/comments/:contentId', (req, res) => {
+    req.query.contentId = req.params.contentId;
+    return commentsApiHandler(req, res);
+});
+
 // Simple in-memory cache
 const cache = new Map();
 const CACHE_DURATION = 15 * 60 * 1000; // 15 minutes (anime data barely changes)

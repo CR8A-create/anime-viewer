@@ -39,6 +39,7 @@
                     <li><a href="../anime/index.html">Anime</a></li>
                     <li><a href="../manga/index.html">Manga</a></li>
                     <li><a href="../novelas/index.html">Novelas</a></li>
+                    <li><a href="../cuenta.html"><i class="fas fa-user"></i> Cuenta</a></li>
                 </ul>
             </nav>
         </div>
@@ -162,6 +163,7 @@
     <!-- ArtPlayer + HLS.js -->
     <script src="https://cdn.jsdelivr.net/npm/artplayer@5.1.7/dist/artplayer.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.7/dist/hls.min.js"></script>
+    <script src="../assets/js/auth.js?v=1"></script>
 
     <script>
         // ⚡ Migrado a Vercel Serverless
@@ -574,13 +576,16 @@
                 if (data.success && data.comments.length > 0) {
                     countEl.textContent = data.comments.length;
                     list.innerHTML = '';
+                    const me = (window.Auth && Auth.user()) ? Auth.user().username.toLowerCase() : null;
                     // Show newest first
                     data.comments.reverse().forEach(c => {
+                        const mine = me && c.userId === me;
                         list.innerHTML += `
                             <div class="comment-item">
                                 <div class="comment-header">
                                     <span class="comment-author">${escapeHtml(c.name)}</span>
                                     <span class="comment-time">${timeAgo(c.timestamp)}</span>
+                                    ${mine ? `<button title="Eliminar" onclick="deleteComment('${c.id}')" style="margin-left:auto;background:none;border:none;color:#888;cursor:pointer;font-size:.8rem"><i class="fas fa-trash"></i></button>` : ''}
                                 </div>
                                 <p class="comment-text">${escapeHtml(c.text)}</p>
                             </div>
@@ -609,7 +614,7 @@
             try {
                 const response = await fetch(`${MOVIES_BACKEND_URL}/comments/${contentId}`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', ...(window.Auth ? Auth.headers() : {}) },
                     body: JSON.stringify({ text })
                 });
                 const data = await response.json();
@@ -637,6 +642,20 @@
                 postComment();
             }
         });
+
+        // Borrar comentario propio (solo el autor; el backend lo verifica)
+        async function deleteComment(id) {
+            if (!confirm('¿Eliminar tu comentario?')) return;
+            try {
+                const res = await fetch(`${MOVIES_BACKEND_URL}/comments/${contentId}?id=${encodeURIComponent(id)}`, {
+                    method: 'DELETE',
+                    headers: (window.Auth ? Auth.headers() : {}),
+                });
+                const data = await res.json();
+                if (data.success) loadComments();
+                else alert(data.message || 'No se pudo eliminar');
+            } catch { alert('Error de conexión'); }
+        }
 
         // Helpers
         function escapeHtml(text) {

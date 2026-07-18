@@ -517,6 +517,7 @@
                     <li><a href="../movies/index.html">Películas</a></li>
                     <li><a href="../manga/index.html">Manga</a></li>
                     <li><a href="../novelas/index.html">Novelas</a></li>
+                    <li><a href="../cuenta.html"><i class="fas fa-user"></i> Cuenta</a></li>
                 </ul>
             </nav>
         </div>
@@ -634,7 +635,8 @@
         </p>
     </footer>
 
-    <script src="../assets/js/mi-lista.js?v=2"></script>
+    <script src="../assets/js/auth.js?v=1"></script>
+    <script src="../assets/js/mi-lista.js?v=3"></script>
     <script src="../assets/js/anime-logic.js?v=6"></script>
     <script>
         // ── Volver a la ficha del anime ───────────────────────────
@@ -819,12 +821,15 @@
                 if (data.success && data.comments && data.comments.length > 0) {
                     countEl.textContent = data.comments.length;
                     list.innerHTML = '';
+                    const me = (window.Auth && Auth.user()) ? Auth.user().username.toLowerCase() : null;
                     [...data.comments].reverse().forEach(c => {
+                        const mine = me && c.userId === me;
                         list.innerHTML += `
                             <div class="comment-item">
                                 <div class="comment-header">
                                     <span class="comment-author">${escHtml(c.name || 'Anónimo')}</span>
                                     <span class="comment-time">${tAgo(c.timestamp)}</span>
+                                    ${mine ? `<button title="Eliminar" onclick="deleteAnimeComment('${c.id}')" style="margin-left:auto;background:none;border:none;color:#777;cursor:pointer;font-size:.8rem"><i class="fas fa-trash"></i></button>` : ''}
                                 </div>
                                 <p class="comment-text">${escHtml(c.text)}</p>
                             </div>`;
@@ -847,7 +852,7 @@
             try {
                 const res = await fetch(`${COMMENTS_API}/comments/${animeContentId}`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', ...(window.Auth ? Auth.headers() : {}) },
                     body: JSON.stringify({ text })
                 });
                 const data = await res.json();
@@ -864,6 +869,20 @@
                 errorEl.style.display = 'block';
             }
             setTimeout(() => { btn.disabled = false; }, 2000);
+        }
+
+        // Borrar comentario propio (solo el autor; el backend lo verifica)
+        async function deleteAnimeComment(id) {
+            if (!confirm('¿Eliminar tu comentario?')) return;
+            try {
+                const res = await fetch(`${COMMENTS_API}/comments/${animeContentId}?id=${encodeURIComponent(id)}`, {
+                    method: 'DELETE',
+                    headers: (window.Auth ? Auth.headers() : {}),
+                });
+                const data = await res.json();
+                if (data.success) loadAnimeComments();
+                else alert(data.message || 'No se pudo eliminar');
+            } catch { alert('Error de conexión'); }
         }
 
         function escHtml(t) {

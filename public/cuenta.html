@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi Cuenta - AniNova</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --accent: #f47521; --accent2: #ff8833;
+            --bg: #0b0c10; --bg2: #141519; --bg3: #1a1c22;
+            --border: #23252b; --text: #f1f1f3; --text2: #a0a0a8; --text3: #6b6d76;
+            --danger: #e0525e;
+        }
+        body { background: var(--bg); color: var(--text); font-family: 'Outfit', sans-serif; min-height: 100vh; }
+        a { color: var(--accent); text-decoration: none; }
+
+        header {
+            background: rgba(20,21,25,.97); border-bottom: 1px solid var(--border);
+            padding: 0 24px; position: sticky; top: 0; z-index: 100; height: 60px;
+            display: flex; align-items: center;
+        }
+        .header-inner { max-width: 1100px; margin: 0 auto; width: 100%; display: flex; align-items: center; justify-content: space-between; }
+        .logo h1 { font-size: 1.4rem; font-weight: 700; color: #fff; }
+        .logo .hl { color: var(--accent); }
+        nav ul { list-style: none; display: flex; gap: 20px; flex-wrap: wrap; }
+        nav a { color: var(--text2); font-size: .875rem; font-weight: 500; }
+        nav a:hover { color: #fff; }
+
+        .wrap { max-width: 1100px; margin: 0 auto; padding: 32px 24px 80px; }
+
+        /* ---- login/registro ---- */
+        .auth-card {
+            max-width: 400px; margin: 40px auto; background: var(--bg2);
+            border: 1px solid var(--border); border-radius: 14px; padding: 32px;
+        }
+        .auth-card h2 { font-size: 1.4rem; margin-bottom: 6px; }
+        .auth-card p.sub { color: var(--text3); font-size: .85rem; margin-bottom: 22px; line-height: 1.5; }
+        .auth-tabs { display: flex; gap: 8px; margin-bottom: 22px; }
+        .auth-tabs button {
+            flex: 1; padding: 9px; background: var(--bg3); color: var(--text2);
+            border: 1px solid var(--border); border-radius: 8px; cursor: pointer;
+            font-family: inherit; font-weight: 600; font-size: .85rem;
+        }
+        .auth-tabs button.active { background: var(--accent); color: #0b0c10; border-color: var(--accent); }
+        .field { margin-bottom: 14px; }
+        .field label { display: block; font-size: .78rem; color: var(--text2); margin-bottom: 5px; font-weight: 600; }
+        .field input {
+            width: 100%; padding: 11px 13px; background: var(--bg3); color: var(--text);
+            border: 1px solid var(--border); border-radius: 8px; font-family: inherit; font-size: .9rem;
+        }
+        .field input:focus { outline: none; border-color: var(--accent); }
+        .field .hint { font-size: .72rem; color: var(--text3); margin-top: 4px; }
+        .auth-error { color: var(--danger); font-size: .82rem; margin: 4px 0 10px; min-height: 18px; }
+        .btn {
+            width: 100%; padding: 12px; background: var(--accent); color: #0b0c10;
+            border: none; border-radius: 8px; font-family: inherit; font-weight: 800;
+            font-size: .9rem; cursor: pointer; text-transform: uppercase; letter-spacing: .5px;
+        }
+        .btn:hover { background: var(--accent2); }
+        .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+        /* ---- perfil ---- */
+        .profile-head { display: flex; align-items: center; gap: 18px; margin-bottom: 30px; flex-wrap: wrap; }
+        .avatar {
+            width: 74px; height: 74px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), #c34f0e);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.9rem; font-weight: 800; color: #0b0c10; text-transform: uppercase;
+        }
+        .profile-head h2 { font-size: 1.5rem; }
+        .profile-head .meta { color: var(--text3); font-size: .85rem; margin-top: 3px; }
+        .logout-btn {
+            margin-left: auto; background: transparent; border: 1px solid var(--border);
+            color: var(--text2); padding: 9px 18px; border-radius: 8px; cursor: pointer;
+            font-family: inherit; font-size: .82rem;
+        }
+        .logout-btn:hover { border-color: var(--danger); color: var(--danger); }
+
+        .tabs { display: flex; gap: 8px; margin-bottom: 22px; flex-wrap: wrap; }
+        .tab {
+            padding: 9px 20px; background: var(--bg2); color: var(--text2);
+            border: 1px solid var(--border); border-radius: 20px; cursor: pointer;
+            font-family: inherit; font-weight: 600; font-size: .85rem;
+        }
+        .tab.active { background: var(--accent); color: #0b0c10; border-color: var(--accent); }
+
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px; }
+        .card {
+            background: var(--bg2); border: 1px solid var(--border); border-radius: 10px;
+            overflow: hidden; cursor: pointer; transition: transform .15s; position: relative;
+        }
+        .card:hover { transform: translateY(-3px); }
+        .card img { width: 100%; aspect-ratio: 2/3; object-fit: cover; display: block; background: var(--bg3); }
+        .card .noimg { width: 100%; aspect-ratio: 2/3; display: flex; align-items: center; justify-content: center; color: var(--text3); font-size: 1.8rem; background: var(--bg3); }
+        .card .info { padding: 10px; }
+        .card .tag { font-size: .68rem; color: var(--accent); font-weight: 700; text-transform: uppercase; }
+        .card h4 { font-size: .82rem; font-weight: 600; margin-top: 3px; line-height: 1.3; max-height: 2.6em; overflow: hidden; }
+        .card .rm {
+            position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,.65);
+            border: none; color: #fff; width: 28px; height: 28px; border-radius: 50%;
+            cursor: pointer; font-size: .8rem; display: none;
+        }
+        .card:hover .rm { display: block; }
+        .card .rm:hover { background: var(--danger); }
+        .card .addlist {
+            position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,.65);
+            border: none; color: #fff; width: 28px; height: 28px; border-radius: 50%;
+            cursor: pointer; font-size: .8rem; display: none;
+        }
+        .card:hover .addlist { display: block; }
+        .card .addlist:hover { background: var(--accent); color: #0b0c10; }
+
+        .empty { color: var(--text3); text-align: center; padding: 50px 20px; font-size: .95rem; }
+        .empty i { font-size: 2rem; display: block; margin-bottom: 12px; opacity: .5; }
+
+        /* ---- mis listas ---- */
+        .list-bar { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+        .list-bar input {
+            flex: 1; min-width: 180px; padding: 10px 13px; background: var(--bg2); color: var(--text);
+            border: 1px solid var(--border); border-radius: 8px; font-family: inherit; font-size: .88rem;
+        }
+        .list-bar button {
+            padding: 10px 20px; background: var(--accent); color: #0b0c10; border: none;
+            border-radius: 8px; font-family: inherit; font-weight: 700; cursor: pointer;
+        }
+        .user-list { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin-bottom: 18px; }
+        .user-list-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+        .user-list-head h3 { font-size: 1rem; }
+        .user-list-head .count { color: var(--text3); font-size: .8rem; }
+        .user-list-head .del {
+            margin-left: auto; background: none; border: none; color: var(--text3);
+            cursor: pointer; font-size: .85rem;
+        }
+        .user-list-head .del:hover { color: var(--danger); }
+        .section-note { color: var(--text3); font-size: .8rem; margin-bottom: 16px; line-height: 1.5; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-inner">
+            <div class="logo"><a href="index.html" style="color:inherit"><h1>Ani<span class="hl">Nova</span></h1></a></div>
+            <nav><ul>
+                <li><a href="anime/index.html">Anime</a></li>
+                <li><a href="movies/index.html">Pelis/Series</a></li>
+                <li><a href="manga/index.html">Manga</a></li>
+                <li><a href="novelas/index.html">Novelas</a></li>
+            </ul></nav>
+        </div>
+    </header>
+
+    <div class="wrap">
+        <!-- LOGIN / REGISTRO -->
+        <div id="authView" style="display:none">
+            <div class="auth-card">
+                <h2 id="authTitle"><i class="fas fa-user-astronaut"></i> Crea tu perfil</h2>
+                <p class="sub">Sin email y sin datos personales: solo un nombre de usuario, una contraseña
+                   y tu edad. Con tu perfil guardas favoritos, historial y listas, y comentas con tu nombre.</p>
+                <div class="auth-tabs">
+                    <button id="tabRegister" class="active" onclick="setMode('register')">Crear cuenta</button>
+                    <button id="tabLogin" onclick="setMode('login')">Iniciar sesión</button>
+                </div>
+                <div class="field">
+                    <label>Usuario</label>
+                    <input id="fUser" maxlength="20" placeholder="ej: otaku_supremo" autocomplete="username">
+                    <div class="hint" id="userHint">3–20 caracteres: letras, números y . _ -</div>
+                </div>
+                <div class="field">
+                    <label>Contraseña</label>
+                    <input id="fPass" type="password" maxlength="100" placeholder="mínimo 6 caracteres" autocomplete="current-password">
+                </div>
+                <div class="field" id="ageField">
+                    <label>Edad</label>
+                    <input id="fAge" type="number" min="5" max="120" placeholder="ej: 21" style="max-width:120px">
+                </div>
+                <div class="auth-error" id="authError"></div>
+                <button class="btn" id="authBtn" onclick="submitAuth()">Crear cuenta</button>
+            </div>
+        </div>
+
+        <!-- PERFIL -->
+        <div id="profileView" style="display:none">
+            <div class="profile-head">
+                <div class="avatar" id="avatar">?</div>
+                <div>
+                    <h2 id="pUser">—</h2>
+                    <div class="meta" id="pMeta"></div>
+                </div>
+                <button class="logout-btn" onclick="doLogout()"><i class="fas fa-right-from-bracket"></i> Cerrar sesión</button>
+            </div>
+
+            <div class="tabs">
+                <button class="tab active" data-tab="historial" onclick="setTab('historial')"><i class="fas fa-clock-rotate-left"></i> Historial</button>
+                <button class="tab" data-tab="favoritos" onclick="setTab('favoritos')"><i class="fas fa-heart"></i> Favoritos</button>
+                <button class="tab" data-tab="listas" onclick="setTab('listas')"><i class="fas fa-list"></i> Mis Listas</button>
+            </div>
+
+            <div id="tabContent"></div>
+        </div>
+    </div>
+
+    <script src="assets/js/auth.js?v=1"></script>
+    <script src="assets/js/mi-lista.js?v=3"></script>
+    <script>
+        let mode = 'register';
+        let activeTab = 'historial';
+
+        function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+
+        function setMode(m) {
+            mode = m;
+            document.getElementById('tabRegister').classList.toggle('active', m === 'register');
+            document.getElementById('tabLogin').classList.toggle('active', m === 'login');
+            document.getElementById('ageField').style.display = m === 'register' ? 'block' : 'none';
+            document.getElementById('userHint').style.display = m === 'register' ? 'block' : 'none';
+            document.getElementById('authBtn').textContent = m === 'register' ? 'Crear cuenta' : 'Entrar';
+            document.getElementById('authTitle').innerHTML = m === 'register'
+                ? '<i class="fas fa-user-astronaut"></i> Crea tu perfil'
+                : '<i class="fas fa-user"></i> Bienvenido de vuelta';
+            document.getElementById('authError').textContent = '';
+        }
+
+        async function submitAuth() {
+            const btn = document.getElementById('authBtn');
+            const err = document.getElementById('authError');
+            const u = document.getElementById('fUser').value.trim();
+            const p = document.getElementById('fPass').value;
+            const a = document.getElementById('fAge').value;
+            err.textContent = '';
+            btn.disabled = true;
+            try {
+                if (mode === 'register') await Auth.register(u, p, a);
+                else await Auth.login(u, p);
+                // Subir/fusionar lo guardado en este dispositivo con la nube
+                await MiLista.mergeWithCloud();
+                render();
+            } catch (e) {
+                err.textContent = e.message;
+            }
+            btn.disabled = false;
+        }
+
+        function doLogout() {
+            Auth.logout();
+            render();
+        }
+
+        function setTab(t) {
+            activeTab = t;
+            document.querySelectorAll('.tab').forEach(el => el.classList.toggle('active', el.dataset.tab === t));
+            renderTab();
+        }
+
+        // ---------- render de contenido ----------
+        function cardHtml(e, opts = {}) {
+            const img = e.image ? `<img src="${esc(e.image)}" loading="lazy" referrerpolicy="no-referrer" alt="">`
+                                : `<div class="noimg"><i class="fas fa-image"></i></div>`;
+            const kind = { anime: 'Anime', movie: 'Película', serie: 'Serie', manga: 'Manga', novela: 'Novela' }[e.kind] || (e.label || '');
+            return `
+                <div class="card" onclick="location.href='${esc(e.url || '#')}'">
+                    ${img}
+                    ${opts.remove ? `<button class="rm" title="Quitar" onclick="event.stopPropagation();${opts.remove}('${esc(e.key)}')"><i class="fas fa-xmark"></i></button>` : ''}
+                    ${opts.addlist ? `<button class="addlist" title="Añadir a lista" onclick="event.stopPropagation();addToList('${esc(e.key)}')"><i class="fas fa-plus"></i></button>` : ''}
+                    <div class="info">
+                        <span class="tag">${esc(kind)}</span>
+                        <h4>${esc(e.title)}</h4>
+                    </div>
+                </div>`;
+        }
+
+        function fixUrl(u) {
+            // Las urls guardadas desde secciones son relativas a esa sección
+            // (p.ej. "ver.html?..."). Desde /cuenta.html hay que prefijarlas.
+            if (!u) return '#';
+            if (u.startsWith('http') || u.includes('/')) return u;
+            return u; // se corrige al guardar con kind; ver normalizeEntry
+        }
+
+        function normalizeEntry(e) {
+            // entradas antiguas guardaron url relativa ("ver.html?..") — se
+            // reconstruye el prefijo por tipo de contenido
+            let url = e.url || '#';
+            if (url && !url.startsWith('http') && !url.includes('/')) {
+                const prefix = { anime: 'anime/', movie: 'movies/', serie: 'movies/', manga: 'manga/', novela: 'novelas/' }[e.kind];
+                url = (prefix || 'anime/') + url;
+            }
+            return { ...e, url };
+        }
+
+        function renderTab() {
+            const c = document.getElementById('tabContent');
+            if (activeTab === 'historial') {
+                const h = MiLista.getHistory().map(normalizeEntry);
+                c.innerHTML = h.length
+                    ? `<div class="grid">${h.map(e => cardHtml(e, { addlist: true })).join('')}</div>`
+                    : `<div class="empty"><i class="fas fa-clock-rotate-left"></i>Aún no hay nada en tu historial.<br>Lo que veas o leas aparecerá aquí.</div>`;
+            }
+            if (activeTab === 'favoritos') {
+                const f = MiLista.getFavs().map(normalizeEntry);
+                c.innerHTML = f.length
+                    ? `<div class="grid">${f.map(e => cardHtml(e, { remove: 'removeFav', addlist: true })).join('')}</div>`
+                    : `<div class="empty"><i class="fas fa-heart"></i>Sin favoritos todavía.<br>Marca ❤ en cualquier ficha para guardarla aquí.</div>`;
+            }
+            if (activeTab === 'listas') renderListas(c);
+        }
+
+        function removeFav(key) {
+            const f = MiLista.getFavs().find(x => x.key === key);
+            if (f) MiLista.toggleFav(f);
+            renderTab();
+        }
+
+        // ---------- listas personalizadas ----------
+        function getLists() { try { return JSON.parse(localStorage.getItem('anv_lists')) || []; } catch { return []; } }
+        function saveLists(l) { localStorage.setItem('anv_lists', JSON.stringify(l)); Auth.syncPush(MiLista.fullState()); }
+
+        function renderListas(c) {
+            const lists = getLists();
+            let html = `
+                <p class="section-note">Crea listas propias (como en Crunchyroll) y añade títulos desde
+                Historial o Favoritos con el botón <i class="fas fa-plus"></i> de cada tarjeta.</p>
+                <div class="list-bar">
+                    <input id="newListName" maxlength="40" placeholder="Nombre de la nueva lista (ej: Para ver luego)">
+                    <button onclick="createList()"><i class="fas fa-plus"></i> Crear lista</button>
+                </div>`;
+            if (!lists.length) {
+                html += `<div class="empty"><i class="fas fa-list"></i>No tienes listas todavía.</div>`;
+            }
+            for (const l of lists) {
+                html += `
+                    <div class="user-list">
+                        <div class="user-list-head">
+                            <h3><i class="fas fa-list" style="color:var(--accent)"></i> ${esc(l.name)}</h3>
+                            <span class="count">${l.items.length} título${l.items.length === 1 ? '' : 's'}</span>
+                            <button class="del" onclick="deleteList('${l.id}')"><i class="fas fa-trash"></i> Eliminar lista</button>
+                        </div>
+                        ${l.items.length
+                            ? `<div class="grid">${l.items.map(e => cardHtml(normalizeEntry(e), { remove: `removeFromList_${l.id}` })).join('')}</div>`
+                            : `<div class="empty" style="padding:20px">Lista vacía</div>`}
+                    </div>`;
+                // handler dinámico de borrado por lista
+                window[`removeFromList_${l.id}`] = (key) => {
+                    const ls = getLists();
+                    const target = ls.find(x => x.id === l.id);
+                    if (target) { target.items = target.items.filter(i => i.key !== key); saveLists(ls); renderTab(); }
+                };
+            }
+            c.innerHTML = html;
+        }
+
+        function createList() {
+            const name = document.getElementById('newListName').value.trim();
+            if (!name) return;
+            const lists = getLists();
+            lists.unshift({ id: Date.now().toString(36), name, items: [] });
+            saveLists(lists);
+            renderTab();
+        }
+
+        function deleteList(id) {
+            if (!confirm('¿Eliminar esta lista?')) return;
+            saveLists(getLists().filter(l => l.id !== id));
+            renderTab();
+        }
+
+        function addToList(key) {
+            const lists = getLists();
+            if (!lists.length) { alert('Primero crea una lista en la pestaña "Mis Listas".'); return; }
+            const item = [...MiLista.getFavs(), ...MiLista.getHistory()].find(e => e.key === key);
+            if (!item) return;
+            const name = prompt('¿A qué lista? Escribe el nombre:\n' + lists.map(l => `• ${l.name}`).join('\n'));
+            if (!name) return;
+            const target = lists.find(l => l.name.toLowerCase() === name.trim().toLowerCase());
+            if (!target) { alert('No existe una lista con ese nombre.'); return; }
+            if (target.items.some(i => i.key === key)) { alert('Ya está en esa lista.'); return; }
+            target.items.push({ key: item.key, title: item.title, image: item.image || '', url: item.url, kind: item.kind || '' });
+            saveLists(lists);
+            renderTab();
+        }
+
+        // ---------- arranque ----------
+        async function render() {
+            const u = Auth.user();
+            document.getElementById('authView').style.display = u ? 'none' : 'block';
+            document.getElementById('profileView').style.display = u ? 'block' : 'none';
+            if (!u) return;
+            document.getElementById('avatar').textContent = u.username.slice(0, 1);
+            document.getElementById('pUser').textContent = u.username;
+            document.getElementById('pMeta').textContent = `${u.age} años · tus listas se sincronizan con tu cuenta`;
+            // Bajar las listas de la nube antes de pintar
+            const cloud = await Auth.syncPull();
+            if (cloud) MiLista.applyState(cloud);
+            renderTab();
+        }
+
+        document.getElementById('fPass').addEventListener('keydown', e => { if (e.key === 'Enter') submitAuth(); });
+        render();
+    </script>
+</body>
+</html>

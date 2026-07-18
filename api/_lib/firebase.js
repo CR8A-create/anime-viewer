@@ -86,6 +86,70 @@ async function addComment(contentId, comment) {
     return entry;
 }
 
+/**
+ * Delete a comment — only if it belongs to userId.
+ * @returns {'ok'|'notfound'|'forbidden'}
+ */
+async function deleteComment(contentId, commentId, userId) {
+    if (useFirestore) {
+        const ref = db.collection('comments').doc(commentId);
+        const snap = await ref.get();
+        if (!snap.exists || snap.data().contentId !== contentId) return 'notfound';
+        if (!snap.data().userId || snap.data().userId !== userId) return 'forbidden';
+        await ref.delete();
+        return 'ok';
+    }
+    const arr = memoryComments.get(contentId) || [];
+    const idx = arr.findIndex(c => c.id === commentId);
+    if (idx === -1) return 'notfound';
+    if (!arr[idx].userId || arr[idx].userId !== userId) return 'forbidden';
+    arr.splice(idx, 1);
+    return 'ok';
+}
+
+// ============================================================
+// USERS (cuentas simples usuario+contraseña+edad) + SYNC
+// Doc id = username en minúsculas. Fallback en memoria para
+// desarrollo local sin credenciales de Firebase.
+// ============================================================
+const memoryUsers = new Map();   // id -> user doc
+const memorySync = new Map();    // id -> data blob
+
+async function getUser(id) {
+    if (useFirestore) {
+        const snap = await db.collection('users').doc(id).get();
+        return snap.exists ? { id: snap.id, ...snap.data() } : null;
+    }
+    return memoryUsers.get(id) || null;
+}
+
+async function createUser(id, data) {
+    if (useFirestore) {
+        await db.collection('users').doc(id).set(data);
+        return { id, ...data };
+    }
+    memoryUsers.set(id, { id, ...data });
+    return { id, ...data };
+}
+
+/** Blob de sincronización de "Mi Lista" (favs/historial/progreso). */
+async function getSyncData(id) {
+    if (useFirestore) {
+        const snap = await db.collection('userSync').doc(id).get();
+        return snap.exists ? snap.data() : null;
+    }
+    return memorySync.get(id) || null;
+}
+
+async function setSyncData(id, data) {
+    if (useFirestore) {
+        await db.collection('userSync').doc(id).set({ ...data, updatedAt: new Date().toISOString() });
+        return true;
+    }
+    memorySync.set(id, { ...data, updatedAt: new Date().toISOString() });
+    return true;
+}
+
 // ============================================================
 // User Favorites & Watched (Firestore only — requires auth)
 // ============================================================
@@ -130,7 +194,8 @@ async function removeWatched(userId, contentId) {
 
 module.exports = {
     db, useFirestore,
-    getComments, addComment,
+    getComments, addComment, deleteComment,
+    getUser, createUser, getSyncData, setSyncData,
     getUserFavorites, addUserFavorite, removeUserFavorite,
     getUserWatched, markAsWatched, removeWatched,
 };

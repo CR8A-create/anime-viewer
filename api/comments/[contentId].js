@@ -1,5 +1,6 @@
 const { cors } = require('../_lib/shared');
-const { getComments, addComment } = require('../_lib/firebase');
+const { getComments, addComment, deleteComment } = require('../_lib/firebase');
+const { authFromRequest } = require('../_lib/auth');
 
 // Random anonymous names
 const ANON_NAMES = [
@@ -55,8 +56,12 @@ module.exports = async (req, res) => {
         }
 
         try {
+            // Con sesión: firma con el nombre de usuario y guarda el dueño
+            // (userId) para poder borrar el comentario después.
+            const session = authFromRequest(req);
             const comment = await addComment(contentId, {
-                name: getAnonName(),
+                name: session ? session.n : getAnonName(),
+                userId: session ? session.u : null,
                 text: text.trim().substring(0, 500),
                 timestamp: new Date().toISOString(),
             });
@@ -66,6 +71,23 @@ module.exports = async (req, res) => {
         } catch (err) {
             console.error('Error posting comment:', err.message);
             return res.status(500).json({ success: false, message: 'Error posting comment' });
+        }
+    }
+
+    // DELETE — solo el autor puede borrar su comentario (?id=commentId)
+    if (req.method === 'DELETE') {
+        const session = authFromRequest(req);
+        if (!session) return res.status(401).json({ success: false, message: 'Inicia sesión para borrar comentarios' });
+        const commentId = req.query.id;
+        if (!commentId) return res.status(400).json({ success: false, message: 'id required' });
+        try {
+            const result = await deleteComment(contentId, commentId, session.u);
+            if (result === 'notfound') return res.status(404).json({ success: false, message: 'Comentario no encontrado' });
+            if (result === 'forbidden') return res.status(403).json({ success: false, message: 'Solo puedes borrar tus propios comentarios' });
+            return res.json({ success: true });
+        } catch (err) {
+            console.error('Error deleting comment:', err.message);
+            return res.status(500).json({ success: false, message: 'Error deleting comment' });
         }
     }
 
