@@ -106,7 +106,7 @@
 
         const makeSection = (icon, titulo, items, isHistory) => {
             const sec = document.createElement('section');
-            sec.className = 'container section';
+            sec.className = 'container section milista-injected';
             sec.innerHTML = `
                 <div class="section-header"><h3><i class="fas ${icon}"></i> ${titulo}</h3></div>
                 <div class="anime-grid"></div>`;

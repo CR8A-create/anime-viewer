@@ -24,7 +24,7 @@
         <button id="nextBtn" disabled>Siguiente <i class="fas fa-chevron-right"></i></button>
     </div>
 
-    <script src="../assets/js/mi-lista.js?v=1"></script>
+    <script src="../assets/js/mi-lista.js?v=2"></script>
     <script>
         const VERCEL_PROJECT = 'pagina-ver-anime';
         const API = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
@@ -83,8 +83,14 @@
                 if (!data.success || !data.pages || !data.pages.length) {
                     cont.innerHTML = '<div class="error-box" style="color:#ccc;padding:60px">No se pudieron cargar las páginas de este capítulo.</div>';
                 } else {
+                    // SIN loading="lazy": las páginas miden 0px hasta cargar y el
+                    // lazy nativo nunca las considera visibles → jamás cargaban.
+                    // min-height de placeholder para que la página sea scrolleable
+                    // mientras van llegando (se quita al cargar cada imagen).
                     cont.innerHTML = data.pages.map((u, i) =>
-                        `<img src="${u}" referrerpolicy="no-referrer" loading="lazy" alt="Página ${i + 1}">`).join('');
+                        `<img src="${u}" referrerpolicy="no-referrer" alt="Página ${i + 1}"
+                              style="min-height:40vh" onload="this.style.minHeight=''"
+                              onerror="this.alt='No se pudo cargar la página ${i + 1}'">`).join('');
                 }
             } catch {
                 cont.innerHTML = '<div class="error-box" style="color:#ccc;padding:60px">Error de conexión.</div>';

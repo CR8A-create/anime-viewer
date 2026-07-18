@@ -16,9 +16,17 @@
                 <li><a href="index.html">Catálogo</a></li>
                 <li><a href="../anime/index.html">Anime</a></li>
                 <li><a href="../manga/index.html">Manga</a></li>
+                <li><a href="../movies/index.html">Pelis/Series</a></li>
             </ul></nav>
         </div>
     </header>
+
+    <div class="container" style="padding:12px 20px 0">
+        <button onclick="if(history.length>1)history.back();else location.href='index.html'"
+            style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);color:#ddd;cursor:pointer;font-size:.9rem;font-family:inherit;padding:8px 16px;border-radius:20px">
+            <i class="fas fa-arrow-left"></i> Volver
+        </button>
+    </div>
 
     <section class="detail-hero">
         <div class="hero-bg" id="heroBg"></div>
@@ -46,7 +54,7 @@
         © 2025 – 2026 AniNova – Todos los derechos pertenecen a sus autores y traductores.</p>
     </footer>
 
-    <script src="../assets/js/mi-lista.js?v=1"></script>
+    <script src="../assets/js/mi-lista.js?v=2"></script>
     <script>
         const VERCEL_PROJECT = 'pagina-ver-anime';
         const API = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')

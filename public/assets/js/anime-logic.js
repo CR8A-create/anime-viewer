@@ -126,6 +126,13 @@ document.addEventListener('DOMContentLoaded', () => {
         searchInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') handleSearch();
         });
+        // Vaciar el buscador (o pulsar Escape) restaura el inicio
+        searchInput.addEventListener('input', () => {
+            if (searchInput.value.trim() === '') exitSearchMode();
+        });
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') { searchInput.value = ''; exitSearchMode(); }
+        });
     }
     if (searchBtn) {
         searchBtn.addEventListener('click', handleSearch);
@@ -481,11 +488,11 @@ async function handleSearch() {
     }
 
     // Index Page Logic
+    enterSearchMode();
     if (recentGrid) recentGrid.innerHTML = '<div class="loading">Buscando...</div>';
-    if (popularGrid && popularGrid.parentElement) popularGrid.parentElement.style.display = 'none';
 
     const recentHeader = document.querySelector('#recentGrid').previousElementSibling.querySelector('h3');
-    if (recentHeader) recentHeader.textContent = `Resultados para: ${query}`;
+    if (recentHeader) recentHeader.innerHTML = `<i class="fas fa-search"></i> Resultados para: ${escapeForHeader(query)}`;
 
     try {
         const response = await fetch(`${BACKEND_URL}/anime/search?q=${encodeURIComponent(query)}`);
@@ -499,6 +506,49 @@ async function handleSearch() {
         console.error('Error searching:', error);
         if (recentGrid) recentGrid.innerHTML = '<p class="error">Error en la búsqueda.</p>';
     }
+    // Llevar la vista directo a los resultados (el carrusel ya está oculto)
+    const resultsSection = recentGrid && recentGrid.closest('section');
+    if (resultsSection) resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ---------------------------------------------------------
+// MODO BÚSQUEDA EN EL INDEX
+// Al buscar se ocultan carrusel, "Continuar Viendo", "Mis
+// Favoritos" y "Populares" para que los resultados queden
+// arriba sin scroll. Al vaciar el buscador se restaura todo.
+// ---------------------------------------------------------
+let preSearchState = null;
+
+function escapeForHeader(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+
+function searchModeSections() {
+    const els = [];
+    const hero = document.getElementById('heroCarousel');
+    if (hero) els.push(hero);
+    document.querySelectorAll('.milista-injected').forEach(el => els.push(el));
+    if (popularGrid && popularGrid.closest('section')) els.push(popularGrid.closest('section'));
+    return els;
+}
+
+function enterSearchMode() {
+    if (!preSearchState) {
+        const recentHeader = document.querySelector('#recentGrid') && document.querySelector('#recentGrid').previousElementSibling.querySelector('h3');
+        preSearchState = {
+            recentHtml: recentGrid ? recentGrid.innerHTML : '',
+            headerHtml: recentHeader ? recentHeader.innerHTML : '',
+        };
+    }
+    searchModeSections().forEach(el => { el.style.display = 'none'; });
+}
+
+function exitSearchMode() {
+    if (!preSearchState) return;
+    searchModeSections().forEach(el => { el.style.display = ''; });
+    if (recentGrid) recentGrid.innerHTML = preSearchState.recentHtml;
+    const recentHeader = document.querySelector('#recentGrid') && document.querySelector('#recentGrid').previousElementSibling.querySelector('h3');
+    if (recentHeader) recentHeader.innerHTML = preSearchState.headerHtml;
+    preSearchState = null;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // ---------------------------------------------------------
