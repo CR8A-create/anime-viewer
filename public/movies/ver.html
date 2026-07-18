@@ -198,10 +198,12 @@
             document.title = `${title} - AniNova Movies`;
             if (type === 'tv') contentId = `${type}_${tmdbId}_s${currentSeason}e${currentEpisode}`;
             loadContentInfo();
-            if (params.get('lang') === 'es') {
-                switchLang('es');
-            } else {
+            // ESPAÑOL por defecto: los servidores priorizados para doblaje
+            // cargan primero salvo que se pida el original con ?lang=en
+            if (params.get('lang') === 'en') {
                 loadServers('en');
+            } else {
+                switchLang('es');
             }
             loadComments();
         }

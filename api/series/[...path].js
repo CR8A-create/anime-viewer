@@ -53,11 +53,11 @@ module.exports = async (req, res) => {
                     { name: 'MultiEmbed ES', url: `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&s=${season}&e=${episode}&lang=es` },
                 ];
             } else {
+                // Julio 2026: retirado AutoEmbed (player.autoembed.cc no resuelve)
                 servers = [
                     { name: 'VidSrc.to', url: `https://vidsrc.to/embed/tv/${tmdbId}/${season}/${episode}` },
                     { name: 'VidLink', url: `https://vidlink.pro/tv/${tmdbId}/${season}/${episode}` },
                     { name: 'VidFast', url: `https://vidfast.pro/tv/${tmdbId}/${season}/${episode}` },
-                    { name: 'AutoEmbed', url: `https://player.autoembed.cc/embed/tv/${tmdbId}/${season}/${episode}` },
                     { name: 'MultiEmbed', url: `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&s=${season}&e=${episode}` },
                 ];
             }
