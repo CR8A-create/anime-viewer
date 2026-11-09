@@ -284,6 +284,8 @@
             .ep-num { width: 38px; height: 38px; font-size: 0.85rem; }
         }
     </style>
+    <link rel="stylesheet" href="../assets/css/mobile.css?v=1">
+    <script src="../assets/js/app-shell.js?v=1" defer></script>
 </head>
 <body data-page="anime-detail">
 
@@ -352,11 +354,11 @@
         </p>
     </footer>
 
-    <script src="../assets/js/auth.js?v=1"></script>
+    <script src="../assets/js/auth.js?v=2"></script>
     <script src="../assets/js/mi-lista.js?v=3"></script>
     <script>
         const VERCEL_PROJECT = 'pagina-ver-anime';
-        const BACKEND_URL = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+        const BACKEND_URL = (location.protocol === 'http:' && (location.hostname === 'localhost' || location.hostname === '127.0.0.1'))
             ? 'http://localhost:3000/api'
             : `https://${VERCEL_PROJECT}.vercel.app/api`;
 

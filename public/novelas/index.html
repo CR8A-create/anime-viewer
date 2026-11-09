@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../assets/css/novelas-theme.css?v=6">
+    <link rel="stylesheet" href="../assets/css/mobile.css?v=1">
+    <script src="../assets/js/app-shell.js?v=1" defer></script>
 </head>
 <body data-page="novelas-home">
     <header>
@@ -48,7 +50,7 @@
 
     <script>
         const VERCEL_PROJECT = 'pagina-ver-anime';
-        const API = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+        const API = (location.protocol === 'http:' && (location.hostname === 'localhost' || location.hostname === '127.0.0.1'))
             ? 'http://localhost:3000/api'
             : `https://${VERCEL_PROJECT}.vercel.app/api`;
         let page = 1;
@@ -120,7 +122,7 @@
                     </div>
                 </div>`;
             dots.innerHTML = ncItems.map((_, i) =>
-                `<button onclick="ncGo(${i})" style="width:9px;height:9px;border-radius:50%;border:none;cursor:pointer;background:${i === ncIndex ? '#d19a2f' : '#3a3527'}"></button>`).join('');
+                `<button onclick="ncGo(${i})" data-active="${i === ncIndex ? 1 : 0}" aria-label="Novedad ${i + 1}" style="width:9px;height:9px;border-radius:50%;border:none;cursor:pointer;background:${i === ncIndex ? '#d19a2f' : '#3a3527'}"></button>`).join('');
         }
         function ncGo(i) { ncIndex = i; ncRender(); ncRestart(); }
         function ncRestart() { clearInterval(ncTimer); ncTimer = setInterval(() => { ncIndex = (ncIndex + 1) % ncItems.length; ncRender(); }, 6000); }

@@ -107,7 +107,7 @@ async function mangaInfo(id) {
     const description = $('.element-description').first().text().trim();
     const status = $('.book-status, span.book-status').first().text().trim();
     const score = $('#score, span#score').first().text().trim();
-    const genres = $('.book-genre a, h6.badge, a.py-2').map((_, e) => $(e).text().trim()).get().filter(g => g && g.length < 24);
+    const genres = $('.book-genre a, h6.badge, a.badge.py-2, a[href*="/tag/"].badge').map((_, e) => $(e).text().trim()).get().filter((g, i, arr) => g && g.length < 24 && arr.indexOf(g) === i);
 
     // Capítulos: li.upload-link → data-number + primer view_uploads.
     // Dedup por número (varios grupos de scan por capítulo → el primero).

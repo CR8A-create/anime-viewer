@@ -1,6 +1,6 @@
 // ============ LÓGICA DEL CATÁLOGO DE MANGA ============
 const VERCEL_PROJECT = 'pagina-ver-anime';
-const API = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+const API = (location.protocol === 'http:' && (location.hostname === 'localhost' || location.hostname === '127.0.0.1'))
     ? 'http://localhost:3000/api'
     : `https://${VERCEL_PROJECT}.vercel.app/api`;
 
@@ -93,7 +93,7 @@ function mcRender() {
             </div>
         </div>`;
     dots.innerHTML = mcItems.map((_, i) =>
-        `<button onclick="mcGo(${i})" style="width:9px;height:9px;border-radius:50%;border:none;cursor:pointer;background:${i === mcIndex ? '#2b8a5c' : '#3a3f47'}"></button>`).join('');
+        `<button onclick="mcGo(${i})" data-active="${i === mcIndex ? 1 : 0}" aria-label="Novedad ${i + 1}" style="width:9px;height:9px;border-radius:50%;border:none;cursor:pointer;background:${i === mcIndex ? '#2b8a5c' : '#3a3f47'}"></button>`).join('');
 }
 function mcGo(i) { mcIndex = i; mcRender(); mcRestart(); }
 function mcRestart() { clearInterval(mcTimer); mcTimer = setInterval(() => { mcIndex = (mcIndex + 1) % mcItems.length; mcRender(); }, 6000); }

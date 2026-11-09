@@ -24,12 +24,14 @@ const SOURCES = {
         name: 'AnimeFLV.ar',
         domains: ['https://animeflv.ar'],
     },
-    // El AnimeFLV clásico quedó CONGELADO (~primavera 2026): catálogo enorme
-    // y fichas completas, pero ya no publica episodios nuevos. Sigue siendo
-    // valioso para info/búsqueda de series antiguas.
+    // El AnimeFLV clásico quedó CONGELADO (~primavera 2026) y desde nov. 2026
+    // NO RESPONDE (timeout en sus 3 dominios). Se mantiene por si vuelve, pero
+    // marcado `fragile`: timeout corto, sin rotar dominios ante errores de red
+    // y breaker al primer fallo, para que no añada 15 s a cada petición.
     animeflv: {
         name: 'AnimeFLV (clásico, congelado)',
         domains: ['https://www3.animeflv.net', 'https://www4.animeflv.net', 'https://animeflv.net'],
+        fragile: true,
     },
     tioanime: {
         name: 'TioAnime',
@@ -52,8 +54,8 @@ const SOURCES = {
 // Orden de preferencia por capacidad. Cambiar el orden aquí cambia
 // qué fuente se intenta primero — no hace falta tocar nada más.
 const SOURCE_ORDER = {
-    airing: ['animeflvar', 'animeflv', 'tioanime', 'jikan'],
-    recent: ['animeflvar', 'animeflv', 'tioanime', 'monoschinos'],
+    airing: ['animeflvar', 'tioanime', 'animeflv', 'jikan'],
+    recent: ['animeflvar', 'tioanime', 'monoschinos', 'animeflv'],
     // info usa un flujo especial: animeflvar + animeflv EN PARALELO y se
     // fusionan los episodios (nuevos de .ar + catálogo profundo del clásico).
     // Esta lista es la cadena de respaldo si ambos fallan.
@@ -72,9 +74,15 @@ for (const key of Object.keys(SOURCES)) {
 const BREAKER_THRESHOLD = 3;          // fallos seguidos para abrir el breaker
 const BREAKER_COOLDOWN = 4 * 60 * 1000; // tiempo antes de reintentar una fuente caída
 
+const FRAGILE_TIMEOUT = 3000;            // timeout máximo para fuentes `fragile`
+const FRAGILE_COOLDOWN = 30 * 60 * 1000; // y su tiempo de castigo tras UN fallo
+
 function breakerOpen(key) {
     const h = health[key];
-    return h.consecFails >= BREAKER_THRESHOLD && h.lastFail && (Date.now() - h.lastFail) < BREAKER_COOLDOWN;
+    const fragile = SOURCES[key].fragile;
+    const threshold = fragile ? 1 : BREAKER_THRESHOLD;
+    const cooldown = fragile ? FRAGILE_COOLDOWN : BREAKER_COOLDOWN;
+    return h.consecFails >= threshold && h.lastFail && (Date.now() - h.lastFail) < cooldown;
 }
 
 function markOk(key, ms) {
@@ -107,7 +115,8 @@ async function sourceGet(key, path, opts = {}) {
         const url = src.domains[idx] + path;
         const t0 = Date.now();
         try {
-            const res = await scraperGet(url, opts.headers || {}, { timeout: opts.timeout || 6500 });
+            const timeout = src.fragile ? Math.min(opts.timeout || 6500, FRAGILE_TIMEOUT) : (opts.timeout || 6500);
+            const res = await scraperGet(url, opts.headers || {}, { timeout });
             h.activeDomainIdx = idx;
             markOk(key, Date.now() - t0);
             return res;
@@ -120,6 +129,9 @@ async function sourceGet(key, path, opts = {}) {
                 throw nf;
             }
             lastErr = e;
+            // Fuente frágil sin respuesta HTTP (timeout/red): no quemar más
+            // tiempo probando el resto de dominios.
+            if (src.fragile && !e.response) break;
         }
     }
     markFail(key, lastErr);
@@ -876,7 +888,7 @@ function toCard({ title, slug, image }) {
 /** Búsqueda multi-fuente → cards estilo Jikan. */
 async function searchCards(query) {
     const errors = [];
-    for (const key of ['animeflvar', 'animeflv', 'tioanime']) {
+    for (const key of ['animeflvar', 'tioanime', 'animeflv']) {
         if (breakerOpen(key)) continue;
         try {
             const results = await searchProviders[key](query);
@@ -899,31 +911,42 @@ async function searchCards(query) {
     throw new Error(`Búsqueda sin resultados → ${errors.join(' | ')}`);
 }
 
-// Géneros reales de AnimeFLV (slug → etiqueta). Los usa el <select> del
-// directorio; el frontend los pide a /api/anime/genres. Actualizar aquí si
-// AnimeFLV cambia su formulario de /browse.
+// Géneros del directorio: [slug del frontend, etiqueta, slug en animeflv.ar].
+// Los usa el <select> del directorio (el frontend los pide a
+// /api/anime/genres). El slug del frontend coincide con el del /browse del
+// AnimeFLV clásico; el tercero es el del filtro genre[] de animeflv.ar/anime/.
 const FLV_GENRES = [
-    ['accion', 'Acción'], ['artes-marciales', 'Artes Marciales'], ['aventura', 'Aventuras'],
-    ['carreras', 'Carreras'], ['ciencia-ficcion', 'Ciencia Ficción'], ['comedia', 'Comedia'],
-    ['demencia', 'Demencia'], ['demonios', 'Demonios'], ['deportes', 'Deportes'], ['drama', 'Drama'],
-    ['ecchi', 'Ecchi'], ['escolares', 'Escolares'], ['espacial', 'Espacial'], ['fantasia', 'Fantasía'],
-    ['harem', 'Harem'], ['historico', 'Histórico'], ['infantil', 'Infantil'], ['josei', 'Josei'],
-    ['juegos', 'Juegos'], ['magia', 'Magia'], ['mecha', 'Mecha'], ['militar', 'Militar'],
-    ['misterio', 'Misterio'], ['musica', 'Música'], ['parodia', 'Parodia'], ['policia', 'Policía'],
-    ['psicologico', 'Psicológico'], ['recuentos-de-la-vida', 'Recuentos de la vida'], ['romance', 'Romance'],
-    ['samurai', 'Samurái'], ['seinen', 'Seinen'], ['shoujo', 'Shoujo'], ['shounen', 'Shounen'],
-    ['sobrenatural', 'Sobrenatural'], ['superpoderes', 'Superpoderes'], ['suspenso', 'Suspenso'],
-    ['terror', 'Terror'], ['vampiros', 'Vampiros'],
+    ['accion', 'Acción', 'action'], ['artes-marciales', 'Artes Marciales', 'martial-arts'],
+    ['aventura', 'Aventuras', 'adventure'], ['carreras', 'Carreras', 'racing'],
+    ['ciencia-ficcion', 'Ciencia Ficción', 'sci-fi'], ['comedia', 'Comedia', 'comedy'],
+    ['deportes', 'Deportes', 'sports'], ['drama', 'Drama', 'drama'], ['ecchi', 'Ecchi', 'ecchi'],
+    ['escolares', 'Escolares', 'school'], ['espacial', 'Espacial', 'space'], ['fantasia', 'Fantasía', 'fantasy'],
+    ['gore', 'Gore', 'gore'], ['harem', 'Harem', 'harem'], ['historico', 'Histórico', 'historical'],
+    ['infantil', 'Infantil', 'kids'], ['isekai', 'Isekai', 'isekai'], ['josei', 'Josei', 'josei'],
+    ['juegos', 'Juegos', 'strategy-game'], ['mecha', 'Mecha', 'mecha'], ['militar', 'Militar', 'military'],
+    ['misterio', 'Misterio', 'mystery'], ['musica', 'Música', 'music'], ['parodia', 'Parodia', 'parody'],
+    ['policia', 'Policía', 'detective'], ['psicologico', 'Psicológico', 'psychological'],
+    ['recuentos-de-la-vida', 'Recuentos de la vida', 'slice-of-life'],
+    ['reencarnacion', 'Reencarnación', 'reincarnation'], ['romance', 'Romance', 'romance'],
+    ['samurai', 'Samurái', 'samurai'], ['seinen', 'Seinen', 'seinen'], ['shoujo', 'Shoujo', 'shoujo'],
+    ['shounen', 'Shounen', 'shounen'], ['sobrenatural', 'Sobrenatural', 'supernatural'],
+    ['superpoderes', 'Superpoderes', 'super-power'], ['supervivencia', 'Supervivencia', 'survival'],
+    ['suspenso', 'Suspenso', 'suspense'], ['terror', 'Terror', 'horror'],
 ];
 const FLV_GENRE_SET = new Set(FLV_GENRES.map(g => g[0]));
+const AR_GENRE = Object.fromEntries(FLV_GENRES.map(g => [g[0], g[2]]));
 const FLV_TYPES = new Set(['tv', 'movie', 'ova', 'special', 'ona']);
 const FLV_ORDERS = new Set(['default', 'updated', 'added', 'title', 'rating']);
+const AR_ORDER = { default: 'popular', rating: 'popular', updated: 'update', added: 'latest', title: 'title' };
+const AR_STATUS = { 1: 'ongoing', 2: 'completed' };
 
 /**
- * Directorio de AnimeFLV con filtros reales de su /browse:
+ * Directorio con filtros reales:
  *   { page, genre(slug), type, status(1=emisión,2=finalizado), order }
  * order: rating (populares) | updated (recientes) | title (A-Z) | added (nuevos)
- * Devuelve { data, pagination } estilo Jikan. Fallback a Jikan si FLV cae.
+ * Fuente primaria: animeflv.ar (/anime/?order=&page=&genre[]=&type=&status=).
+ * Respaldo: /browse del AnimeFLV clásico (si responde) y, al final, Jikan.
+ * Devuelve { data, pagination } estilo Jikan.
  */
 async function browseCards(opts = {}) {
     const page = parseInt(opts.page, 10) || 1;
@@ -933,6 +956,44 @@ async function browseCards(opts = {}) {
     const status = (opts.status === '1' || opts.status === '2') ? opts.status : null;
 
     const errors = [];
+    if (!breakerOpen('animeflvar')) {
+        try {
+            const qs = [`order=${AR_ORDER[order]}`, `page=${page}`];
+            if (genre) qs.push(`genre%5B%5D=${AR_GENRE[genre]}`);
+            if (type) qs.push(`type=${type}`);
+            if (status) qs.push(`status=${AR_STATUS[status]}`);
+            const { data } = await sourceGet('animeflvar', `/anime/?${qs.join('&')}`);
+            const $ = cheerio.load(data);
+            const base = activeDomain('animeflvar');
+            const items = [];
+            const seen = new Set();
+            $('.bsx').each((_, el) => {
+                const $el = $(el);
+                const m = ($el.find('a').attr('href') || '').match(/\/anime\/([^/]+)\/?$/);
+                const title = flvarCardTitle($el);
+                if (!m || !title || seen.has(m[1])) return;
+                seen.add(m[1]);
+                const image = absolutize($el.find('img').attr('src') || $el.find('img').attr('data-src'), base);
+                items.push({
+                    mal_id: m[1],
+                    title,
+                    type: $el.find('.typez').first().text().trim() || 'Anime',
+                    images: { jpg: { image_url: image, large_image_url: image } },
+                });
+            });
+            if (items.length > 0) {
+                const hasNext = $('.hpage a.r').length > 0;
+                return {
+                    data: items,
+                    source: 'animeflvar',
+                    pagination: { current_page: page, has_next_page: hasNext, last_visible_page: hasNext ? page + 1 : page },
+                };
+            }
+            errors.push('animeflvar: 0 items');
+        } catch (e) {
+            errors.push(`animeflvar: ${e.message}`);
+        }
+    }
     if (!breakerOpen('animeflv')) {
         try {
             const qs = [`order=${order}`, `page=${page}`];
@@ -998,17 +1059,31 @@ async function browseCards(opts = {}) {
  * conserva los episodios antiguos Y los recién emitidos.
  */
 async function infoMerged(title) {
-    const keys = ['animeflvar', 'animeflv'].filter(k => !breakerOpen(k));
-    const settled = await Promise.all(keys.map(k =>
-        infoProviders[k](title).then(d => ({ k, d }), e => ({ k, e }))
-    ));
+    // Compañera de fusión: TioAnime (catálogo profundo, sinopsis en español).
+    // El AnimeFLV clásico solo se usa si ha respondido bien en esta instancia
+    // (hoy está caído; así no se paga su timeout en cada arranque en frío).
+    const partner = (health.animeflv.lastOk && !breakerOpen('animeflv')) ? 'animeflv' : 'tioanime';
+    const keys = ['animeflvar', partner].filter(k => !breakerOpen(k));
+    const run = k => infoProviders[k](title).then(d => ({ k, d }), e => ({ k, e }));
+    let settled;
+    if (keys.length === 2) {
+        // El clásico es lento/inestable: una vez que .ar ha respondido se le
+        // da un margen corto y, si no llega, se sigue solo con .ar.
+        const pAr = run('animeflvar');
+        const pCl = run(partner);
+        const ar = await pAr;
+        const grace = new Promise(r => setTimeout(() => r({ k: partner, e: new Error('descartada por lenta') }), ar.d ? 2500 : 8000));
+        settled = [ar, await Promise.race([pCl, grace])];
+    } else {
+        settled = await Promise.all(keys.map(run));
+    }
     const oks = settled.filter(s => s.d);
     const errors = settled.filter(s => s.e).map(s => `${s.k}: ${s.e.message}`);
 
     if (oks.length === 1) return { data: oks[0].d, source: oks[0].k };
     if (oks.length === 2) {
         const ar = oks.find(o => o.k === 'animeflvar').d;
-        const cl = oks.find(o => o.k === 'animeflv').d;
+        const cl = oks.find(o => o.k === partner).d;
         // Solo fusionar si ambos resolvieron al MISMO anime (slugs similares)
         const clean = s => s.replace(/-(tv|ova|movie|special|specials|sub-espanol)$/, '').replace(/-/g, ' ');
         if (matchScore(clean(ar.slug), clean(cl.slug)) >= 400) {
@@ -1031,12 +1106,12 @@ async function infoMerged(title) {
                     rate: cl.rate || ar.rate,
                     episodes,
                 },
-                source: 'animeflvar+animeflv',
+                source: `animeflvar+${partner}`,
             };
         }
         // Resolvieron animes distintos: gana el que mejor coincide con el título
         const better = matchScore(title, clean(ar.slug)) >= matchScore(title, clean(cl.slug))
-            ? oks.find(o => o.k === 'animeflvar') : oks.find(o => o.k === 'animeflv');
+            ? oks.find(o => o.k === 'animeflvar') : oks.find(o => o.k === partner);
         return { data: better.d, source: better.k };
     }
 

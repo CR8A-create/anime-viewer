@@ -1,5 +1,10 @@
 {
   "appId": "com.aninova.app",
   "appName": "AniNova",
-  "webDir": "public"
+  "webDir": "public",
+  "backgroundColor": "#0b0c10",
+  "server": {
+    "url": "https://aninova.netlify.app",
+    "androidScheme": "https"
+  }
 }

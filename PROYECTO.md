@@ -2,7 +2,7 @@
 
 Documento de contexto para retomar el proyecto en otra conversación. Resume
 arquitectura, fuentes, endpoints, decisiones y mantenimiento. Última
-actualización: sesión de julio 2026.
+actualización: sesión de noviembre 2026.
 
 ## Qué es
 
@@ -14,12 +14,20 @@ español y gratis. No aloja nada: scrapea/incrusta fuentes de terceros.
 
 - **Frontend estático** → Netlify: `https://aninova.netlify.app` (carpeta `public/`).
 - **API serverless** → Vercel: `https://pagina-ver-anime.vercel.app/api` (carpeta `api/`, funciones catch-all `[...path].js`).
-- **`server.js`** → solo desarrollo local (`node server.js`, puerto 3000). Monta
-  los mismos handlers `api/**/[...path].js` que producción para probar en local.
+- **`server.js`** → solo desarrollo local (`npm run dev`, puerto 3000). ~60
+  líneas: sirve `public/` (HTML sin caché) y monta los mismos handlers
+  `api/**/[...path].js` que producción. No tiene lógica propia.
+- **App Android** (Capacitor, carpeta `android/`) → carga la web publicada
+  (`capacitor.config.json` → `server.url`), así que se actualiza sola. Lleva
+  bloqueador de anuncios nativo (ver `ANUNCIOS.md`). APK: `npm run app:build`.
+- Flujo de ramas: se trabaja en `dev` y se fusiona a `main` cuando está
+  verificado (cada push a `main` despliega Netlify + Vercel).
 - Repo GitHub: `CR8A-create/anime-viewer`. Se despliega solo con cada push a `main`.
 - Arrancar local para pruebas: hay `.claude/launch.json` con el server `aninova`.
-- El frontend detecta host: en localhost usa `http://localhost:3000/api`, en
-  producción `https://pagina-ver-anime.vercel.app/api`.
+- El frontend detecta host: en `http://localhost` usa `http://localhost:3000/api`;
+  en cualquier otro caso (producción y `https://localhost` de la app
+  empaquetada) usa `https://pagina-ver-anime.vercel.app/api`. La API admite
+  por CORS los orígenes de la app (`ALLOWED_ORIGINS` en `shared.js`).
 
 ## Estructura
 
@@ -45,7 +53,9 @@ public/
   manga/  index.html manga.html(ficha) leer.html(lector)
   novelas/ index.html novela.html(ficha) leer.html(lector)
   assets/css/  style.css(anime, naranja) movies-theme.css(morado) manga-theme.css(verde) novelas-theme.css(ambar)
+  assets/css/  mobile.css = CAPA MÓVIL común (se carga la última en todas las páginas)
   assets/js/   anime-logic.js  movies-logic.js  manga-logic.js  mi-lista.js(favoritos/historial localStorage)
+               app-shell.js = barra inferior de pestañas + gestos (móvil)
 ```
 
 ## Fuentes por sección
@@ -53,17 +63,23 @@ public/
 ### ANIME — `api/_lib/animeSources.js` (multi-fuente con fallback)
 - **animeflv.ar** (WordPress/AnimeStream): PRIMARIA de airing/recent/videos. Se
   actualiza a diario. Player rápido "HLS" = player.zilla-networks.com.
-- **www3/www4.animeflv.net** (clásico): CONGELADO desde ~primavera 2026, pero
-  catálogo profundo con sinopsis ES. Redirige www3→www4. Sus videos ya no van
-  inline (`var videos = []`).
-- **TioAnime, JKAnime, MonosChinos**: fallbacks de videos/recent.
+- **www3/www4.animeflv.net** (clásico): **CAÍDO desde nov. 2026** (timeout en
+  sus 3 dominios). Sigue en `SOURCES` marcado `fragile` (timeout 3 s, sin
+  rotar dominios, breaker al primer fallo durante 30 min) por si vuelve, pero
+  ya no es primaria de nada.
+- **TioAnime**: catálogo profundo + sinopsis ES. Es la compañera de fusión de
+  `info` (episodios antiguos) y fallback de búsqueda/videos.
+- **JKAnime, MonosChinos**: fallbacks de videos/recent.
 - **Jikan (MyAnimeList)**: último recurso de metadata. Da 504 con frecuencia —
   por eso el buscador/directorio NO usan Jikan directo.
 - `SOURCE_ORDER` define el orden por capacidad. `info` fusiona animeflv.ar +
-  clásico en paralelo (episodios nuevos + catálogo viejo).
+  TioAnime en paralelo (episodios nuevos + catálogo viejo; p. ej. One Piece
+  1..1180). Si .ar ya respondió, a la otra se le dan 2,5 s de margen.
 - Endpoints: `/api/anime/airing|recent|info?title=|videos?slug=&episode=|search?q=|top?page=&genre=&type=&order=|genres|status`.
-- Directorio: filtros REALES de AnimeFLV (`FLV_GENRES` con slugs, tipo, orden
-  rating/updated/added/title). No hay filtro por letra (la fuente no lo soporta).
+- Directorio (`/top`): filtros REALES de **animeflv.ar** (`/anime/?order=&page=
+  &genre[]=&type=&status=`, 30 por página). `FLV_GENRES` = [slug frontend,
+  etiqueta, slug en .ar]; orden rating/updated/added/title. Respaldo: clásico
+  → Jikan. No hay filtro por letra (la fuente no lo soporta).
 - Monitoreo en vivo: `GET /api/anime/status`.
 
 ### PELÍCULAS y SERIES — `api/movies` y `api/series` (TMDB + embeds)
@@ -162,11 +178,25 @@ nombre de usuario (`userId` = username en minúsculas) y el autor puede
 borrarlos (`DELETE /api/comments/{contentId}?id=` con Bearer; el backend
 verifica propiedad). Sin sesión siguen los nombres anónimos aleatorios.
 
-## Anuncios (decisión del usuario)
+## Anuncios
 Se probó `sandbox` en los iframes y un ranking de servidores por fiabilidad;
-ambos se REVIRTIERON porque rompían/movían el problema. Decisión final: **no
-tocar los reproductores**; el usuario usa bloqueador (uBlock/Brave/DNS AdGuard).
-Los reproductores quedan con su orden original de servidores, sin sandbox.
+ambos se REVIRTIERON porque rompían/movían el problema. En la WEB **no se
+tocan los reproductores** (orden original de servidores, sin sandbox); el
+bloqueo va en el contenedor:
+- **App Android**: bloqueador nativo en `MainActivity.java` (lista
+  `res/raw/adblock_hosts.txt`, pop-ups y redirecciones canceladas).
+- **Navegador**: DNS privado AdGuard / Brave / uBlock.
+Guía completa para el usuario en `ANUNCIOS.md`.
+
+## Diseño móvil (nov. 2026)
+`assets/css/mobile.css` + `assets/js/app-shell.js`, incluidos en todas las
+páginas (antes de `</head>`). En ≤768px: cabecera compacta (logo + buscador),
+los enlaces propios de la sección pasan a chips con scroll y los enlaces a
+otras secciones se ocultan porque están en la **barra inferior fija**
+(Anime · Cine y TV · Manga · Novelas · Cuenta). La barra no aparece en la
+portada ni en los lectores (páginas sin `<header>`). Rejillas a 3 columnas,
+carruseles deslizables con el dedo, y en el reproductor de anime la lista de
+episodios va justo debajo del vídeo. Escritorio no cambia.
 
 ## Mantenimiento (cuando algo se rompe)
 - Un sitio cambia de dominio → editar el array `domains` de esa fuente en
@@ -196,5 +226,6 @@ Los reproductores quedan con su orden original de servidores, sin sandbox.
 
 ## Otros docs del repo
 - `SOURCES.md` — selectores vigentes por fuente de anime + guía de actualización.
+- `ANUNCIOS.md` — cómo quitar anuncios (app, móvil, PC) y cómo ampliar la lista.
 - `FIREBASE.md` — conectar Firestore (gratis) para comentarios/sincronización.
 - `README.md` — original del proyecto.

@@ -1,12 +1,16 @@
 {
-  "name": "anime-api-server",
+  "name": "aninova",
   "version": "1.0.0",
-  "description": "API Privada para Anime Viewer",
+  "description": "AniNova: anime, cine/TV, manga y novelas (frontend estático + API serverless)",
   "main": "server.js",
   "scripts": {
+    "dev": "node server.js",
     "start": "node server.js",
     "dev:vercel": "vercel dev",
-    "dev": "node server.js"
+    "check": "node scripts/check.js",
+    "app:sync": "cap sync android",
+    "app:open": "cap open android",
+    "app:build": "node scripts/build-apk.js"
   },
   "dependencies": {
     "@capacitor/android": "^7.4.4",

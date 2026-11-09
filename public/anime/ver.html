@@ -501,6 +501,8 @@
             .anime-info-detailed h2 { font-size: 1.25rem; }
         }
     </style>
+    <link rel="stylesheet" href="../assets/css/mobile.css?v=1">
+    <script src="../assets/js/app-shell.js?v=1" defer></script>
 </head>
 <body data-page="player">
 
@@ -635,9 +637,9 @@
         </p>
     </footer>
 
-    <script src="../assets/js/auth.js?v=1"></script>
+    <script src="../assets/js/auth.js?v=2"></script>
     <script src="../assets/js/mi-lista.js?v=3"></script>
-    <script src="../assets/js/anime-logic.js?v=6"></script>
+    <script src="../assets/js/anime-logic.js?v=7"></script>
     <script>
         // ── Volver a la ficha del anime ───────────────────────────
         function goBackToDetail() {
@@ -648,7 +650,7 @@
 
         // ── Comments API ──────────────────────────────────────────
         const VERCEL_PROJECT_ANIME = 'pagina-ver-anime';
-        const COMMENTS_API = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+        const COMMENTS_API = (location.protocol === 'http:' && (location.hostname === 'localhost' || location.hostname === '127.0.0.1'))
             ? 'http://localhost:3000/api'
             : `https://${VERCEL_PROJECT_ANIME}.vercel.app/api`;
 

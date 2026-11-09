@@ -3,7 +3,8 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#1A1A2E">
     <title>AniNova - Bienvenido</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -142,7 +143,8 @@
 
         /* Móvil: 2 columnas compactas; las 4 tarjetas caben y la página hace scroll */
         @media (max-width: 480px) {
-            body { padding: 28px 12px; }
+            body { padding: 70px 12px 28px; justify-content: flex-start; }
+            .account-link { top: 14px !important; right: 14px !important; padding: 8px 14px !important; }
             .logo { margin-bottom: 1.4rem; }
             .gateway-container { gap: 12px; }
             .card p { display: none; }
@@ -154,7 +156,7 @@
 
 <body>
 
-    <a href="cuenta.html" style="position:fixed;top:18px;right:18px;background:var(--darker);border:1px solid rgba(255,255,255,.15);color:#eee;text-decoration:none;padding:9px 18px;border-radius:20px;font-size:.85rem;z-index:10">
+    <a href="cuenta.html" class="account-link" style="position:fixed;top:18px;right:18px;background:var(--darker);border:1px solid rgba(255,255,255,.15);color:#eee;text-decoration:none;padding:9px 18px;border-radius:20px;font-size:.85rem;z-index:10">
         <i class="fas fa-user" style="color:var(--primary)"></i> Mi Cuenta
     </a>
 

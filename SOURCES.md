@@ -11,10 +11,16 @@ una devuelva datos (`SOURCE_ORDER` en `animeSources.js`):
 
 | Capacidad | Orden de fuentes |
 |---|---|
-| `airing` (en emisión) | **AnimeFLV.ar** → AnimeFLV clásico → TioAnime → Jikan |
-| `recent` (últimos episodios) | **AnimeFLV.ar** → AnimeFLV clásico → TioAnime → MonosChinos |
-| `info` (detalle + episodios) | **AnimeFLV.ar + clásico EN PARALELO (fusión)** → TioAnime → Jikan |
+| `airing` (en emisión) | **AnimeFLV.ar** → TioAnime → AnimeFLV clásico → Jikan |
+| `recent` (últimos episodios) | **AnimeFLV.ar** → TioAnime → MonosChinos → AnimeFLV clásico |
+| `info` (detalle + episodios) | **AnimeFLV.ar + TioAnime EN PARALELO (fusión)** → TioAnime → Jikan |
 | `videos` (servidores de un episodio) | **AnimeFLV.ar** → TioAnime → JKAnime → MonosChinos → AnimeFLV clásico |
+| `top` (directorio/populares) | **AnimeFLV.ar** (`/anime/?order=&genre[]=&type=&status=&page=`, cards `.bsx`, siguiente página = `.hpage a.r`) → clásico → Jikan |
+
+> **Nov. 2026:** el AnimeFLV clásico (www3/www4.animeflv.net) NO RESPONDE.
+> Sigue en `SOURCES` como `fragile` (timeout 3 s, breaker al primer fallo) por
+> si vuelve; lo que sigue sobre él en este documento es histórico.
+
 
 **Los dos AnimeFLV (julio 2026):**
 

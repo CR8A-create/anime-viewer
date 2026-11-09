@@ -12,7 +12,7 @@
 // ============================================================
 (function () {
     const K = 'anv_auth';
-    const API = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+    const API = (location.protocol === 'http:' && (location.hostname === 'localhost' || location.hostname === '127.0.0.1'))
         ? 'http://localhost:3000/api'
         : 'https://pagina-ver-anime.vercel.app/api';
 

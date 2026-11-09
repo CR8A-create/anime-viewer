@@ -1,67 +1,48 @@
-# 🎬 Anime Viewer Project
-    -   `Express`: Framework para el servidor web.
-    -   `Cheerio`: Librería para *web scraping* (parseo de HTML).
-    -   `Axios`: Cliente HTTP para realizar peticiones a la fuente de datos.
-    -   `Cors`: Middleware para permitir peticiones desde el cliente.
--   **Frontend**:
-    -   `HTML5`, `CSS3`, `JavaScript (Vanilla)`: Estructura y lógica del cliente.
--   **Móvil**:
-    -   `Capacitor`: Puente para convertir la web app en una app nativa (Android).
+# AniNova
 
-## 📂 Estructura del Proyecto
+Web personal (uso privado entre amigos) para **ver anime, películas y series, y
+leer manga y novelas ligeras** en español. No aloja nada: muestra contenido de
+fuentes de terceros.
 
-A continuación se describe el propósito de los archivos principales:
+- **Web**: https://aninova.netlify.app (carpeta `public/`, estático en Netlify)
+- **API**: https://pagina-ver-anime.vercel.app/api (carpeta `api/`, serverless en Vercel)
+- **App Android**: carpeta `android/` (Capacitor). Carga la web publicada y
+  añade bloqueo de anuncios nativo.
 
-| Archivo / Carpeta | Descripción |
-| :--- | :--- |
-| `server.js` | **Núcleo del Backend**. Define los endpoints de la API (`/api/anime`, `/api/videos`) y la lógica de scraping. |
-| `index.html` | Página de inicio. Muestra la lista de animes o resultados de búsqueda. |
-| `directorio.html` | Página del directorio de animes. |
-| `emision.html` | Página para ver animes en emisión. |
-| `script.js` | **Lógica del Frontend**. Maneja las peticiones a la API, la navegación y la renderización del DOM. |
-| `style.css` | Estilos globales de la aplicación. |
-| `package.json` | Define las dependencias del proyecto (`express`, `cheerio`, etc.) y scripts de inicio. |
-| `android/` | Carpeta generada por Capacitor que contiene el proyecto nativo de Android Studio. |
-| `capacitor.config.json` | Configuración de Capacitor (ID de la app, nombre, directorio web). |
+## Desarrollo
 
-## ⚙️ Instalación y Uso
+```bash
+npm install
+npm run dev
+```
 
-### Prerrequisitos
--   Tener instalado [Node.js](https://nodejs.org/).
+Abre http://localhost:3000. El servidor local (`server.js`) sirve `public/` y
+monta los mismos handlers de `api/` que producción.
 
-### Pasos
-1.  **Clonar el repositorio** (o descargar los archivos):
-    ```bash
-    git clone <tu-url-del-repo>
-    cd <nombre-de-la-carpeta>
-    ```
+| Comando | Qué hace |
+| --- | --- |
+| `npm run dev` | Servidor local en el puerto 3000 |
+| `npm run check` | Comprueba la sintaxis de todos los `.js` |
+| `npm run app:build` | Sincroniza Capacitor y compila el APK (necesita Android Studio) |
+| `npm run app:open` | Abre el proyecto Android en Android Studio |
 
-2.  **Instalar dependencias**:
-    ```bash
-    npm install
-    ```
+## Ramas y despliegue
 
-3.  **Iniciar el servidor**:
-    ```bash
-    node server.js
-    # O si tienes configurado el script start:
-    npm start
-    ```
-    El servidor correrá por defecto en `http://localhost:3000`.
+Se trabaja en `dev` y se fusiona a `main` cuando está verificado. Cada push a
+`main` despliega la web (Netlify) y la API (Vercel) automáticamente.
 
-4.  **Ver la aplicación**:
-    Abre `index.html` en tu navegador o configura un servidor de desarrollo local (como Live Server) para servir los archivos estáticos.
+## Documentación
 
-## 🔌 API Endpoints
+| Archivo | Contenido |
+| --- | --- |
+| [PROYECTO.md](PROYECTO.md) | Arquitectura completa, fuentes, endpoints, decisiones y mantenimiento |
+| [SOURCES.md](SOURCES.md) | Selectores de scraping por fuente de anime y cómo actualizarlos |
+| [ANUNCIOS.md](ANUNCIOS.md) | Cómo quitar los anuncios en la app, el móvil y el PC |
+| [FIREBASE.md](FIREBASE.md) | Conectar Firestore (cuentas, comentarios, sincronización) |
 
-El backend expone las siguientes rutas:
+Estado de las fuentes en vivo: `/api/anime/status` y `/api/manga/status`.
 
--   **`GET /api/anime/:title`**:
-    -   Busca un anime por título.
-    -   Devuelve: Información del anime y lista de episodios.
--   **`GET /api/videos/:slug/:episode`**:
-    -   Obtiene los servidores de video para un episodio específico.
-    -   Devuelve: Lista de servidores con sus URLs.
+## Aviso
 
-## ⚠️ Aviso Legal
-Este proyecto es con fines educativos y de aprendizaje. El contenido es obtenido de fuentes de terceros mediante scraping.
+Proyecto educativo y sin ánimo de lucro. Todos los derechos de las obras
+pertenecen a sus legítimos propietarios.

@@ -166,6 +166,8 @@
             .episodes-grid { grid-template-columns: 1fr; }
         }
     </style>
+    <link rel="stylesheet" href="../assets/css/mobile.css?v=1">
+    <script src="../assets/js/app-shell.js?v=1" defer></script>
 </head>
 <body data-page="movie-detail">
 
@@ -227,7 +229,7 @@
 
     <script>
         const VERCEL_PROJECT = 'pagina-ver-anime';
-        const BACKEND_URL = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+        const BACKEND_URL = (location.protocol === 'http:' && (location.hostname === 'localhost' || location.hostname === '127.0.0.1'))
             ? 'http://localhost:3000/api'
             : `https://${VERCEL_PROJECT}.vercel.app/api`;
         const TMDB_IMG = 'https://image.tmdb.org/t/p';

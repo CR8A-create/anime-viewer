@@ -1,0 +1,224 @@
+/* ============================================================
+   CAPA MÓVIL COMPARTIDA (todas las secciones)
+   ------------------------------------------------------------
+   Se carga la ÚLTIMA en cada página. En pantallas ≤768px:
+   - Cabecera compacta: logo + buscador en una fila.
+   - Los enlaces de la sección (Directorio, En Emisión…) pasan
+     a "chips" con scroll horizontal; los enlaces a OTRAS
+     secciones se ocultan porque ya están en la barra inferior.
+   - Barra de pestañas inferior fija (la inyecta app-shell.js).
+   ============================================================ */
+:root {
+    --tab-accent: var(--accent, var(--primary-color, #f47521));
+    --tabbar-h: 58px;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.anv-tabbar { display: none; }
+
+@media (max-width: 768px) {
+    html { -webkit-text-size-adjust: 100%; }
+    body { overflow-x: hidden; }
+    * { -webkit-tap-highlight-color: transparent; }
+
+    /* ---------- Barra inferior ---------- */
+    body.has-tabbar { padding-bottom: calc(var(--tabbar-h) + var(--safe-bottom)); }
+
+    .anv-tabbar {
+        display: flex;
+        position: fixed;
+        left: 0; right: 0; bottom: 0;
+        z-index: 1500;
+        height: calc(var(--tabbar-h) + var(--safe-bottom));
+        padding-bottom: var(--safe-bottom);
+        background: rgba(13, 14, 18, 0.97);
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        -webkit-backdrop-filter: blur(12px);
+        backdrop-filter: blur(12px);
+    }
+    .anv-tabbar a {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        color: #8b8d98;
+        font-family: 'Outfit', sans-serif;
+        font-size: 0.68rem;
+        font-weight: 600;
+        line-height: 1;
+        text-decoration: none;
+        border: 0;
+        padding: 0;
+        transition: color .15s;
+    }
+    .anv-tabbar a i { font-size: 1.15rem; }
+    .anv-tabbar a.active { color: var(--tab-accent); }
+    .anv-tabbar a:active { color: #fff; }
+
+    /* Con el teclado abierto la barra estorba: se oculta */
+    body:has(input:focus, textarea:focus) .anv-tabbar { display: none; }
+
+    /* ---------- Cabecera compacta ---------- */
+    header {
+        height: auto !important;
+        padding: 0 !important;
+        display: block !important;
+    }
+    header .header-content,
+    header .header-inner {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 8px 12px;
+        height: auto !important;
+        padding: 9px 14px !important;
+        max-width: none;
+    }
+    header .logo { flex: 0 0 auto; order: 1; }
+    header .logo h1 { font-size: 1.25rem !important; line-height: 1.2; }
+    header .search-bar {
+        order: 2;
+        flex: 1 1 140px;
+        width: auto !important;
+        min-width: 0;
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 7px 12px;
+        border-radius: 20px;
+    }
+    /* 16px evita el zoom automático de iOS al enfocar */
+    header .search-bar input,
+    input[type="text"], input[type="search"], input[type="password"], input[type="number"], select, textarea {
+        font-size: 16px;
+    }
+
+    header nav {
+        order: 3;
+        flex: 1 0 100%;
+        display: block !important;
+        overflow-x: auto;
+        scrollbar-width: none;
+        margin: 0 -14px;
+        padding: 0 14px 2px;
+    }
+    header nav::-webkit-scrollbar { display: none; }
+    header nav ul {
+        display: flex !important;
+        flex-wrap: nowrap;
+        gap: 8px !important;
+        white-space: nowrap;
+        font-size: 0.82rem !important;
+    }
+    header nav li a {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 13px !important;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.09) !important;
+        color: #cfd0d6;
+        font-size: 0.82rem;
+        font-weight: 500;
+    }
+    header nav li a.active {
+        background: var(--tab-accent);
+        border-color: var(--tab-accent) !important;
+        color: #0b0c10;
+        font-weight: 700;
+    }
+    /* Enlaces a otras secciones: ya viven en la barra inferior */
+    header nav li.anv-xsec,
+    header nav li:has(> a[href^="../"]),
+    header nav li:has(> a[href$="/index.html"]) { display: none; }
+    header nav.anv-empty { display: none !important; }
+
+    /* ---------- Ajustes generales ---------- */
+    .container { padding-left: 14px; padding-right: 14px; }
+
+    /* Carrusel: sin flechas (se desliza con el dedo) */
+    .carousel-btn { display: none !important; }
+
+    /* Carruseles de novedades (manga / novelas): estilos inline → compactar */
+    #mangaCarousel, #novelCarousel { padding: 0 14px !important; margin-top: 12px !important; }
+    #mcTrack, #ncTrack { height: 190px !important; }
+    #mcTrack img, #ncTrack img { height: 150px !important; }
+    #mcTrack h2, #ncTrack h2 {
+        font-size: 1.05rem !important;
+        overflow-wrap: anywhere;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    #mcTrack img + div, #ncTrack img + div { flex: 1; }
+    #mcTrack > div > div:last-child, #ncTrack > div > div:last-child { padding: 14px 16px !important; gap: 14px !important; }
+
+    /* Rejillas de portadas: 3 por fila en móviles normales */
+    .anime-grid, .manga-grid, .novel-grid, .movies-grid, .content-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: 10px !important;
+    }
+    .anime-card h4, .manga-card h4 { font-size: 0.78rem; }
+
+    /* Botones cómodos para el dedo */
+    .page-btn, .server-btn, .episode-btn, .load-more-btn, .type-tab, .range-btn { min-height: 40px; }
+
+    /* Avisos flotantes por encima de la barra inferior */
+    body.has-tabbar #anvAuthToast,
+    body.has-tabbar .anv-toast {
+        bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 14px) !important;
+    }
+    body.has-tabbar #anvAuthToast { width: calc(100% - 28px); max-width: 420px; }
+    body.has-tabbar .anv-toast { left: 14px; right: 14px !important; text-align: center; }
+    body.has-tabbar .cast-fab { bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 14px) !important; }
+
+    footer { font-size: 0.72rem !important; padding: 18px 14px !important; margin-top: 30px; }
+}
+
+/* Reproductor de anime: en una columna, la lista de episodios va justo
+   debajo del vídeo/servidores (antes quedaba al final, tras los comentarios) */
+@media (max-width: 960px) {
+    body[data-page="player"] .player-layout { display: flex; flex-direction: column; gap: 0; }
+    body[data-page="player"] .player-main { display: contents; }
+    body[data-page="player"] .ep-sidebar { order: 1; margin: 4px 0 20px; }
+    body[data-page="player"] .ep-sidebar-list { max-height: 320px; }
+    body[data-page="player"] .player-main > .divider,
+    body[data-page="player"] .anime-info-detailed,
+    body[data-page="player"] .comments-section { order: 2; }
+}
+@media (max-width: 768px) {
+    /* Vídeo a todo el ancho de la pantalla */
+    body[data-page="player"] .video-wrapper,
+    body[data-page="movies-player"] .video-wrapper {
+        margin-left: -14px;
+        margin-right: -14px;
+        width: auto;
+        border-radius: 0;
+    }
+    body[data-page="player"] .player-page { padding: 10px 14px 30px; }
+}
+
+/* Móviles muy estrechos: 2 portadas por fila */
+@media (max-width: 340px) {
+    .anime-grid, .manga-grid, .novel-grid, .movies-grid, .content-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+    .anv-tabbar a { font-size: 0.6rem; }
+}
+
+/* Apaisado en móvil (viendo un vídeo): la barra no roba altura */
+@media (max-width: 950px) and (max-height: 480px) and (orientation: landscape) {
+    body[data-page="player"] .anv-tabbar,
+    body[data-page="movies-player"] .anv-tabbar { display: none; }
+    body[data-page="player"].has-tabbar,
+    body[data-page="movies-player"].has-tabbar { padding-bottom: 0; }
+    body[data-page="player"] header,
+    body[data-page="movies-player"] header { position: static; }
+}

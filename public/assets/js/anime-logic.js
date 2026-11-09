@@ -3,7 +3,7 @@ const API_URL = 'https://api.jikan.moe/v4';
 // ⚡ Migrado a Vercel Serverless — actualiza VERCEL_PROJECT con tu nombre de proyecto
 const VERCEL_PROJECT = 'pagina-ver-anime';
 const PROD_URL = `https://${VERCEL_PROJECT}.vercel.app/api`;
-const BACKEND_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+const BACKEND_URL = (location.protocol === 'http:' && (location.hostname === 'localhost' || location.hostname === '127.0.0.1'))
     ? 'http://localhost:3000/api'
     : PROD_URL;
 
@@ -38,7 +38,10 @@ async function cachedFetch(cacheKey, url) {
     }
     const response = await fetch(url);
     const data = await response.json();
-    setSessionCache(cacheKey, data);
+    // Solo se cachean respuestas buenas: si el backend falló una vez, la
+    // siguiente visita debe reintentar (antes el error duraba 5 minutos).
+    const hasData = Array.isArray(data && data.data) ? data.data.length > 0 : !!(data && data.data);
+    if (response.ok && data && data.success !== false && hasData) setSessionCache(cacheKey, data);
     return data;
 }
 
@@ -78,13 +81,14 @@ async function checkBackendConnection(retries = 3) {
         }
     }
 
-    console.warn('✗ Backend unavailable after retries. Falling back to Jikan API (English content).');
-    showToast('⚠️ Servidor lento, mostrando contenido en inglés temporalmente.', 'warning');
+    console.warn('✗ Backend no disponible tras los reintentos.');
+    showToast('⚠️ No se pudo conectar con el servidor. Revisa tu conexión y recarga.', 'warning');
     return false;
 }
 
 function showToast(msg, type = 'info') {
     const toast = document.createElement('div');
+    toast.className = 'anv-toast';
     toast.style.cssText = `
         position: fixed; bottom: 20px; right: 20px; 
         background: ${type === 'warning' ? '#ff9800' : '#333'}; 
@@ -235,6 +239,8 @@ async function fetchAiringAnime(container) {
         const data = await response.json();
         if (data.success && data.data.length > 0) {
             renderAnimeGrid(data.data, container);
+        } else if (container) {
+            container.innerHTML = '<p class="error">No hay animes en emisión disponibles ahora mismo.</p>';
         }
     } catch (error) {
         console.error('Error fetching airing anime:', error);
@@ -403,6 +409,8 @@ async function fetchRecentEpisodes() {
                 type: item.episodes[0].title
             }));
             renderAnimeGrid(recentEpisodes, recentGrid);
+        } else if (recentGrid) {
+            recentGrid.innerHTML = '<p class="error">No se pudieron cargar los episodios recientes.</p>';
         }
     } catch (error) {
         console.error('Error fetching recent episodes:', error);
@@ -423,12 +431,12 @@ async function fetchTopAnime(page = 1, append = false) {
                     const card = document.createElement('div');
                     card.className = 'anime-card';
                     card.onclick = () => openPlayer(anime);
-                    const thumb = anime.images?.jpg?.image_url || anime.image_url;
-                    const name = anime.title || 'Sin título';
+                    const thumb = escapeForHeader(anime.images?.jpg?.image_url || anime.image_url || '');
+                    const name = escapeForHeader(anime.title || 'Sin título');
                     card.innerHTML = `
                         <img src="${thumb}" alt="${name}" loading="lazy">
                         <div class="card-info">
-                            <span class="type">${anime.type || 'Anime'}</span>
+                            <span class="type">${escapeForHeader(anime.type || 'Anime')}</span>
                             <h4>${name}</h4>
                         </div>`;
                     popularGrid.appendChild(card);
@@ -436,6 +444,8 @@ async function fetchTopAnime(page = 1, append = false) {
             } else {
                 renderAnimeGrid(data.data, popularGrid);
             }
+        } else if (!append && popularGrid) {
+            popularGrid.innerHTML = '<p class="error">No se pudieron cargar los populares.</p>';
         }
     } catch (error) {
         console.error('Error fetching top anime:', error);
@@ -466,7 +476,7 @@ async function handleSearch() {
         const grid = document.getElementById('directoryGrid') || document.getElementById('emisionGrid');
         const pagination = document.getElementById('pagination');
         const headerTitle = document.querySelector('.section-header h3');
-        if (headerTitle) headerTitle.innerHTML = `<i class="fas fa-search"></i> Resultados para: ${query}`;
+        if (headerTitle) headerTitle.innerHTML = `<i class="fas fa-search"></i> Resultados para: ${escapeForHeader(query)}`;
 
         if (grid) grid.innerHTML = '<div class="loading">Buscando...</div>';
         if (pagination) pagination.innerHTML = '';
@@ -519,7 +529,9 @@ async function handleSearch() {
 // ---------------------------------------------------------
 let preSearchState = null;
 
-function escapeForHeader(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+function escapeForHeader(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
 
 function searchModeSections() {
     const els = [];
@@ -577,14 +589,14 @@ function setupCarousel(animes) {
         <div class="hero-backdrop" style="background-image: url('${anime.images.jpg.large_image_url}');"></div>
         <div class="hero-container container">
             <div class="hero-poster">
-                <img src="${anime.images.jpg.large_image_url}" alt="${anime.title}">
+                <img src="${anime.images.jpg.large_image_url}" alt="${escapeForHeader(anime.title)}">
             </div>
             <div class="hero-content">
                 <div class="hero-meta">
                     <span class="status-badge">En Emisión</span>
                 </div>
-                <h2>${anime.title}</h2>
-                <p>${anime.synopsis ? anime.synopsis.substring(0, 200) + '...' : 'Sin descripción disponible.'}</p>
+                <h2>${escapeForHeader(anime.title)}</h2>
+                <p>${anime.synopsis ? escapeForHeader(anime.synopsis.substring(0, 200)) + '...' : 'Sin descripción disponible.'}</p>
                 <button class="btn-primary" onclick="openPlayerFromCarousel(${index})">Ver Ahora</button>
             </div>
         </div>
@@ -651,9 +663,9 @@ function renderAnimeGrid(animeList, container) {
         card.className = 'anime-card';
         card.onclick = () => openPlayer(anime);
 
-        const imageUrl = anime.images.jpg.image_url;
-        const title = anime.title;
-        const type = anime.type || 'TV';
+        const imageUrl = escapeForHeader((anime.images && anime.images.jpg && anime.images.jpg.image_url) || '');
+        const title = escapeForHeader(anime.title);
+        const type = escapeForHeader(anime.type || 'TV');
 
         card.innerHTML = `
             <img src="${imageUrl}" alt="${title}" loading="lazy">

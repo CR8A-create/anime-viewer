@@ -5,6 +5,10 @@ const axios = require('axios');
 // ============================================================
 const ALLOWED_ORIGINS = [
     'https://aninova.netlify.app',
+    // App Android (Capacitor) cuando lleva la web empaquetada
+    'https://localhost',
+    'capacitor://localhost',
+    'http://localhost',
     'http://localhost:3000',
     'http://localhost:5500',
     'http://127.0.0.1:5500',

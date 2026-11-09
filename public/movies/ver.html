@@ -22,6 +22,8 @@
         .player-mode-indicator.native { background: rgba(147,51,234,0.2); color: #c084fc; }
         .player-mode-indicator.embed { background: rgba(255,255,255,0.1); color: #888; }
     </style>
+    <link rel="stylesheet" href="../assets/css/mobile.css?v=1">
+    <script src="../assets/js/app-shell.js?v=1" defer></script>
 </head>
 
 <body data-page="movies-player">
@@ -163,11 +165,11 @@
     <!-- ArtPlayer + HLS.js -->
     <script src="https://cdn.jsdelivr.net/npm/artplayer@5.1.7/dist/artplayer.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.7/dist/hls.min.js"></script>
-    <script src="../assets/js/auth.js?v=1"></script>
+    <script src="../assets/js/auth.js?v=2"></script>
 
     <script>
         // ⚡ Migrado a Vercel Serverless
-        const MOVIES_BACKEND_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+        const MOVIES_BACKEND_URL = (location.protocol === 'http:' && (location.hostname === 'localhost' || location.hostname === '127.0.0.1'))
             ? 'http://localhost:3000/api'
             : 'https://pagina-ver-anime.vercel.app/api';
 

@@ -38,6 +38,8 @@
         .dir-pagination .page-ind { color: var(--text-gray); font-size: .9rem; }
         .dir-loading, .dir-error { grid-column: 1/-1; text-align: center; color: var(--text-gray); padding: 40px; }
     </style>
+    <link rel="stylesheet" href="../assets/css/mobile.css?v=1">
+    <script src="../assets/js/app-shell.js?v=1" defer></script>
 </head>
 
 <body data-page="directory">
@@ -106,11 +108,11 @@
         © 2025 - 2026 AniNova – Todos los derechos de las obras pertenecen a sus legítimos propietarios.</p>
     </footer>
 
-    <script src="../assets/js/auth.js?v=1"></script>
+    <script src="../assets/js/auth.js?v=2"></script>
     <script src="../assets/js/mi-lista.js?v=3"></script>
     <script>
         const VERCEL_PROJECT = 'pagina-ver-anime';
-        const API = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+        const API = (location.protocol === 'http:' && (location.hostname === 'localhost' || location.hostname === '127.0.0.1'))
             ? 'http://localhost:3000/api'
             : `https://${VERCEL_PROJECT}.vercel.app/api`;
 

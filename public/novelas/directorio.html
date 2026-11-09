@@ -33,6 +33,8 @@
         .dir-pagination button:disabled { opacity: .35; cursor: not-allowed; }
         .dir-pagination .pg { color: #8a8f98; font-size: .85rem; }
     </style>
+    <link rel="stylesheet" href="../assets/css/mobile.css?v=1">
+    <script src="../assets/js/app-shell.js?v=1" defer></script>
 </head>
 <body data-page="novelas-dir">
     <header>
@@ -83,7 +85,7 @@
 
     <script>
         const VERCEL_PROJECT = 'pagina-ver-anime';
-        const API = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+        const API = (location.protocol === 'http:' && (location.hostname === 'localhost' || location.hostname === '127.0.0.1'))
             ? 'http://localhost:3000/api'
             : `https://${VERCEL_PROJECT}.vercel.app/api`;
 
