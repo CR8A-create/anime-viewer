@@ -42,7 +42,7 @@
     }
 
     // ---- SINCRONIZACIÓN CON LA NUBE (si hay sesión) ----
-    const SYNC_KEYS = ['anv_favs', 'anv_watched', 'anv_history', 'anv_manga_prog', 'anv_manga_read', 'anv_lists'];
+    const SYNC_KEYS = ['anv_favs', 'anv_watched', 'anv_history', 'anv_manga_prog', 'anv_manga_read', 'anv_lists', 'anv_marks'];
     function fullState() {
         const out = {};
         SYNC_KEYS.forEach(k => { out[k] = load(k, ['anv_favs', 'anv_history', 'anv_lists'].includes(k) ? [] : {}); });
@@ -78,6 +78,12 @@
             // objetos (watched/progreso): la nube pisa, lo local rellena
             ['anv_watched', 'anv_manga_prog', 'anv_manga_read'].forEach(k => {
                 merged[k] = { ...(local[k] || {}), ...(cloud[k] || {}) };
+            });
+            // marcadores: por episodio gana el más reciente
+            merged['anv_marks'] = { ...(cloud['anv_marks'] || {}) };
+            Object.entries(local['anv_marks'] || {}).forEach(([id, m]) => {
+                const c = merged['anv_marks'][id];
+                if (!c || (m.at || 0) > (c.at || 0)) merged['anv_marks'][id] = m;
             });
             applyState(merged);
             window.Auth.syncPush(merged);
@@ -140,6 +146,30 @@
     }
     function getHistory() { return load(K_HISTORY, []); }
 
+    // ---- MARCADORES (minuto en el que dejaste un episodio) ----
+    // { "<animeKey>|<ep>": { t: segundos, at: timestamp } }
+    const K_MARKS = 'anv_marks';
+    const MARKS_MAX = 300;
+    function setMark(animeKey, ep, seconds) {
+        const marks = load(K_MARKS, {});
+        const id = `${animeKey}|${ep}`;
+        if (seconds == null || seconds < 1) delete marks[id];
+        else marks[id] = { t: Math.round(seconds), at: Date.now() };
+        const ids = Object.keys(marks);
+        if (ids.length > MARKS_MAX) {
+            ids.sort((a, b) => (marks[a].at || 0) - (marks[b].at || 0))
+                .slice(0, ids.length - MARKS_MAX).forEach(k => delete marks[k]);
+        }
+        // Se guarda cada pocos segundos: escribir sin disparar una subida
+        // a la nube en cada tic (flushMarks la lanza al salir/pausar).
+        try { localStorage.setItem(K_MARKS, JSON.stringify(marks)); } catch { /* lleno */ }
+    }
+    function getMark(animeKey, ep) {
+        const m = load(K_MARKS, {})[`${animeKey}|${ep}`];
+        return m ? m.t : 0;
+    }
+    function flushMarks() { queueSync(); }
+
     // ---- PROGRESO DE MANGA ----
     const K_MANGA_PROG = 'anv_manga_prog';   // { mangaKey: ultimoCapLeido }
     const K_MANGA_READ = 'anv_manga_read';   // { mangaKey: { cap: ts } }
@@ -156,6 +186,7 @@
     window.MiLista = {
         keyOf, getFavs, isFav, toggleFav, markWatched, isWatched, watchedCount, pushHistory, getHistory,
         setMangaProgress, getMangaProgress, markChapterRead, getReadChapters,
+        setMark, getMark, flushMarks,
         mergeWithCloud, fullState, applyState,
     };
 

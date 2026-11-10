@@ -225,6 +225,25 @@ module.exports = async (req, res) => {
             return res.json(result);
         }
 
+        // --- STATUS (diagnóstico: ¿qué fuentes responden desde producción?) ---
+        if (action === 'status') {
+            const probes = {
+                skynovels: `${SN}/novels?page=1&limit=1`,
+                devilnovels: 'https://devilnovels.com/wp-json/wp/v2/categories?per_page=1',
+            };
+            const out = {};
+            await Promise.all(Object.entries(probes).map(async ([name, url]) => {
+                const t0 = Date.now();
+                try {
+                    const r = await axios.get(url, { timeout: 8000, headers: { 'User-Agent': 'AniNova/1.0 (personal reader)' } });
+                    out[name] = { ok: true, status: r.status, ms: Date.now() - t0 };
+                } catch (e) {
+                    out[name] = { ok: false, error: (e.response ? `HTTP ${e.response.status} — ` : '') + e.message, ms: Date.now() - t0 };
+                }
+            }));
+            return res.json({ success: true, sources: out });
+        }
+
         return res.status(404).json({ success: false, message: 'Endpoint not found' });
     } catch (e) {
         console.error('Novels API Error:', e.message);

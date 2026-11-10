@@ -286,6 +286,36 @@
         .control-btn:disabled { opacity: 0.3; cursor: not-allowed; }
         .ep-nav-center { font-size: 0.85rem; color: var(--text3); }
 
+        /* Marcador de progreso */
+        .mark-bar {
+            display: none; align-items: center; gap: 10px; flex-wrap: wrap;
+            margin-top: 10px; padding: 9px 12px;
+            background: var(--bg2); border: 1px solid var(--border); border-radius: 10px;
+            font-size: 0.85rem; color: var(--text2);
+        }
+        .mark-bar.visible { display: flex; }
+        .mark-bar .mark-time { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--text); font-size: 1rem; min-width: 52px; }
+        .mark-bar .mark-state { color: var(--text3); font-size: 0.78rem; }
+        .mark-bar .mark-actions { margin-left: auto; display: flex; gap: 6px; }
+        .mark-bar button {
+            background: var(--bg3); border: 1px solid var(--border); color: var(--text2);
+            border-radius: 8px; padding: 6px 10px; font-size: 0.8rem; cursor: pointer; font-family: inherit;
+        }
+        .mark-bar button:hover { color: #fff; border-color: var(--text3); }
+        .mark-bar button.primary { background: var(--accent); border-color: var(--accent); color: #111; font-weight: 700; }
+        .mark-resume {
+            display: none; margin-top: 10px; padding: 10px 12px; border-radius: 10px;
+            background: rgba(244, 117, 33, 0.12); border: 1px solid rgba(244, 117, 33, 0.45);
+            color: var(--text); font-size: 0.88rem; line-height: 1.4;
+        }
+        .mark-resume.visible { display: block; }
+        .mark-resume b { color: var(--accent2); font-variant-numeric: tabular-nums; }
+        .ep-row-mark { margin-left: auto; flex-shrink: 0; font-size: 0.7rem; color: var(--accent2); font-variant-numeric: tabular-nums; }
+        .ep-row-mark + .seen-check { margin-left: 6px; }
+        .ep-row-mark:empty { display: none; }
+        .ep-row-badge + .ep-row-mark { margin-left: 6px; }
+        .server-btn small { opacity: 0.65; font-weight: 400; margin-left: 4px; }
+
         /* ── SERVER SECTION ── */
         .server-section { margin-bottom: 24px; }
         .server-label {
@@ -549,6 +579,20 @@
             </div>
         </div>
 
+        <!-- Marcador: por dónde ibas -->
+        <div class="mark-resume" id="markResume"></div>
+        <div class="mark-bar" id="markBar">
+            <i class="fas fa-bookmark" style="color:var(--accent)"></i>
+            <span>Marcador</span>
+            <span class="mark-time" id="markTime">0:00</span>
+            <span class="mark-state" id="markState"></span>
+            <div class="mark-actions">
+                <button type="button" onclick="Marker.nudge(-30)" title="Atrasar el marcador 30 s">−30s</button>
+                <button type="button" onclick="Marker.nudge(30)" title="Adelantar el marcador 30 s">+30s</button>
+                <button type="button" class="primary" id="markToggle" onclick="Marker.toggle()">Iniciar</button>
+            </div>
+        </div>
+
         <!-- Episode navigation -->
         <div class="ep-nav">
             <button id="prevEpBtn" class="control-btn" disabled>
@@ -638,7 +682,7 @@
     </footer>
 
     <script src="../assets/js/auth.js?v=2"></script>
-    <script src="../assets/js/mi-lista.js?v=3"></script>
+    <script src="../assets/js/mi-lista.js?v=4"></script>
     <script src="../assets/js/anime-logic.js?v=7"></script>
     <script>
         // ── Volver a la ficha del anime ───────────────────────────
@@ -695,19 +739,99 @@
                 list.innerHTML = '<span style="color:var(--text3);font-size:0.85rem">Sin servidores para este idioma</span>';
                 return;
             }
+            // Servidor preferido: el último que elegiste a mano (como hace JKAnime).
+            // "Voe 2" y "VOE" cuentan como el mismo servidor.
+            const baseName = n => String(n).replace(/\s+\d+$/, '').toLowerCase();
+            let fav = null;
+            try { fav = localStorage.getItem('anv_fav_server'); } catch { }
+            let start = fav ? servers.findIndex(s => baseName(s.name) === fav) : -1;
+            if (start < 0) start = 0;
             servers.forEach((s, i) => {
                 const btn = document.createElement('button');
-                btn.className = 'server-btn' + (i === 0 ? ' active' : '');
+                btn.className = 'server-btn' + (i === start ? ' active' : '');
                 btn.textContent = s.name;
+                if (s.source) btn.title = 'Fuente: ' + s.source;
                 btn.onclick = () => {
                     document.querySelectorAll('.server-btn').forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
+                    try { localStorage.setItem('anv_fav_server', baseName(s.name)); } catch { }
                     changeServer(s.name, s.url);
                 };
                 list.appendChild(btn);
             });
-            if (servers.length > 0) changeServer(servers[0].name, servers[0].url);
+            if (servers.length > 0) changeServer(servers[start].name, servers[start].url);
         }
+
+        // ── MARCADOR: por dónde dejaste el episodio ───────────────
+        // Los reproductores son iframes de otras webs y no nos dicen el
+        // minuto real, así que el marcador CUENTA el tiempo que llevas con
+        // el episodio en marcha: arranca cuando tocas el vídeo, se detiene
+        // si cambias de pestaña y se puede pausar/ajustar a mano. Se guarda
+        // por episodio (y en tu cuenta si has iniciado sesión).
+        const Marker = (() => {
+            let key = '', ep = null, secs = 0, running = false, lastSave = 0;
+            const $ = id => document.getElementById(id);
+            const fmt = t => {
+                t = Math.max(0, Math.round(t));
+                const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = t % 60;
+                return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(s).padStart(2, '0');
+            };
+            function paint() {
+                $('markTime').textContent = fmt(secs);
+                $('markToggle').textContent = running ? 'Pausar' : (secs > 0 ? 'Seguir' : 'Iniciar');
+                $('markState').textContent = running ? 'contando…' : (secs > 0 ? 'en pausa' : 'toca el vídeo para empezar');
+            }
+            function persist(force) {
+                if (ep == null) return;
+                if (!force && Date.now() - lastSave < 5000) return;
+                lastSave = Date.now();
+                MiLista.setMark(key, ep, secs);
+                const chip = document.querySelector(`.ep-row[data-ep="${ep}"] .ep-row-mark`);
+                if (chip) chip.textContent = secs >= 30 ? fmt(secs) : '';
+            }
+            setInterval(() => {
+                if (!running || document.visibilityState !== 'visible') return;
+                secs++;
+                paint();
+                persist(false);
+            }, 1000);
+            // Tocar el vídeo (el foco entra en el iframe) = empezar a contar
+            window.addEventListener('blur', () => {
+                setTimeout(() => {
+                    if (document.activeElement && document.activeElement.id === 'videoPlayer' && !running && ep != null) {
+                        running = true; paint();
+                    }
+                }, 0);
+            });
+            const leave = () => { persist(true); MiLista.flushMarks(); };
+            document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') leave(); });
+            window.addEventListener('pagehide', leave);
+
+            return {
+                fmt,
+                /** Cambia de episodio: guarda el anterior y carga el marcador del nuevo. */
+                open(animeKey, episode) {
+                    if (ep != null) persist(true);
+                    key = animeKey; ep = episode; running = false;
+                    secs = MiLista.getMark(key, ep);
+                    $('markBar').classList.add('visible');
+                    const box = $('markResume');
+                    if (secs >= 30) {
+                        box.innerHTML = `<i class="fas fa-bookmark"></i> Dejaste este episodio en el minuto <b>${fmt(secs)}</b>. `
+                            + `Adelanta el vídeo hasta ahí y el marcador seguirá contando desde ese punto. `
+                            + `<a href="#" onclick="Marker.reset();return false" style="color:var(--accent2)">Empezar de cero</a>`;
+                        box.classList.add('visible');
+                    } else {
+                        box.classList.remove('visible');
+                    }
+                    paint();
+                },
+                toggle() { running = !running; paint(); persist(true); },
+                nudge(d) { secs = Math.max(0, secs + d); paint(); persist(true); },
+                reset() { secs = 0; running = false; $('markResume').classList.remove('visible'); paint(); persist(true); },
+            };
+        })();
+        window.Marker = Marker;
 
         // ── LISTA LATERAL DE EPISODIOS (estilo animeflv.ar) ───────
         let _sidebarEpisodes = [];
@@ -742,6 +866,7 @@
                         <div class="ep-row-name">${animeName} · Sub Español</div>
                     </div>
                     ${ep.number === latest ? '<span class="ep-row-badge">Nuevo</span>' : ''}
+                    <span class="ep-row-mark" title="Lo dejaste aquí">${(m => m >= 30 ? Marker.fmt(m) : '')(MiLista.getMark(listKey, ep.number))}</span>
                     <span class="seen-check" title="Visto"><i class="fas fa-check-circle"></i></span>`;
                 frag.appendChild(row);
             });
@@ -773,6 +898,7 @@
                 const p = new URLSearchParams(location.search);
                 const t = p.get('title') || p.get('id') || '';
                 const key = MiLista.keyOf(t);
+                Marker.open(key, n);
                 MiLista.markWatched(key, n);
                 const row = document.querySelector(`.ep-row[data-ep="${n}"]`);
                 if (row) row.classList.add('seen');

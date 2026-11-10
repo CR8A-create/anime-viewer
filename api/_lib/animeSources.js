@@ -60,7 +60,7 @@ const SOURCE_ORDER = {
     // fusionan los episodios (nuevos de .ar + catálogo profundo del clásico).
     // Esta lista es la cadena de respaldo si ambos fallan.
     info: ['tioanime', 'jikan'],
-    videos: ['animeflvar', 'tioanime', 'jkanime', 'monoschinos', 'animeflv'],
+    videos: ['jkanime', 'animeflvar', 'tioanime', 'monoschinos', 'animeflv'],
 };
 
 // ------------------------------------------------------------
@@ -161,6 +161,39 @@ async function jikanGet(path) {
             throw e;
         }
     }
+}
+
+/**
+ * Títulos alternativos de un anime según AniList (romaji / inglés /
+ * sinónimos). Las fuentes en español catalogan por el título japonés
+ * ("Ore dake Level Up na Ken") y la gente busca el inglés ("Solo
+ * Leveling"): con esto se reintenta la búsqueda con el otro nombre.
+ * Devuelve [] si AniList no responde (nunca lanza).
+ */
+const altTitleCache = new Map();
+async function altTitles(query) {
+    const key = normTitle(query);
+    if (!key) return [];
+    if (altTitleCache.has(key)) return altTitleCache.get(key);
+    let out = [];
+    try {
+        const { data } = await axios.post('https://graphql.anilist.co', {
+            query: 'query($s:String){Page(perPage:3){media(search:$s,type:ANIME,sort:SEARCH_MATCH){title{romaji english}synonyms}}}',
+            variables: { s: query },
+        }, { timeout: 4000, headers: { 'Content-Type': 'application/json', Accept: 'application/json' } });
+        const media = ((data.data || {}).Page || {}).media || [];
+        const m = media[0];
+        if (m) {
+            const all = [m.title.romaji, m.title.english, ...(m.synonyms || [])].filter(Boolean);
+            // Solo si AniList entendió la consulta (alguno de sus títulos se le parece)
+            if (all.some(t => matchScore(query, t) >= 300)) {
+                out = [m.title.romaji, m.title.english].filter(t => t && normTitle(t) !== key);
+            }
+        }
+    } catch { /* AniList caído: sin alternativas */ }
+    if (altTitleCache.size > 300) altTitleCache.clear();
+    altTitleCache.set(key, out);
+    return out;
 }
 
 // ------------------------------------------------------------
@@ -288,13 +321,6 @@ function flvarParseServers(html) {
         if (!/^https?:\/\//.test(url) || seen.has(url)) return;
         seen.add(url);
         servers.push({ name: $o.text().trim() || 'Servidor', url, lang: 'sub' });
-    });
-    // El player "HLS" (player.zilla-networks.com) es el rápido estilo
-    // Crunchyroll que usa el sitio por defecto: va primero.
-    servers.sort((a, b) => {
-        const ha = a.name.toLowerCase() === 'hls' || a.url.includes('zilla-networks') ? 0 : 1;
-        const hb = b.name.toLowerCase() === 'hls' || b.url.includes('zilla-networks') ? 0 : 1;
-        return ha - hb;
     });
     return servers.filter(s => embedAllowed(s.url));
 }
@@ -704,8 +730,19 @@ async function fetchAnimePage(sourceKey, title) {
 // PROVEEDORES — VIDEOS
 // Shape: [{ name, url, lang: 'sub'|'lat' }]
 // ============================================================
-const BLOCKED_EMBEDS = ['mega.nz', 'mail.ru'];
-const JK_EMBED_OK = ['Streamtape', 'VOE', 'Vidhide', 'Streamwish', 'Doodstream', 'Mp4upload', 'Mixdrop', 'YourUpload', 'Uqload'];
+// Embeds que NO sirven dentro de nuestro iframe:
+//  - mega.nz / mail.ru: no se dejan incrustar.
+//  - zilla-networks.com/m3u8/: es una playlist HLS en crudo (no una página)
+//    y sus segmentos solo se sirven a animeflv.ar → pantalla en blanco.
+//  - v.tioanime.com/embed.php (Amus/Mepu) y embedsb.com (StreamSB): muertos.
+const BLOCKED_EMBEDS = ['mega.nz', 'mail.ru', 'zilla-networks.com/m3u8/', 'v.tioanime.com/embed', 'embedsb.com', 'sbembed', 'streamsb'];
+const JK_EMBED_OK = ['Streamtape', 'VOE', 'Vidhide', 'Streamwish', 'Filemoon', 'Doodstream', 'Mp4upload', 'Mixdrop', 'YourUpload', 'Uqload'];
+// Reproductores PROPIOS de JKAnime que se dejan incrustar. "Desu" recuerda por
+// sí solo el minuto en el que dejaste el episodio. ("Desuka" lleva la IP de
+// quien pidió la página en la URL, así que no vale pedido desde el servidor.)
+const JK_NATIVE_OK = ['Desu', 'Magi'];
+// Hosts que suelen dar más guerra (anuncios agresivos): al final de la lista.
+const LAST_RESORT_EMBEDS = ['hqq.tv', 'netu', 'waaw'];
 
 function embedAllowed(url) {
     return url && !BLOCKED_EMBEDS.some(b => url.includes(b));
@@ -786,16 +823,26 @@ const videoProviders = {
                 if (e.notFound) continue;
                 throw e;
             }
-            const srvData = parseJsVar(data, 'servers');
-            if (!Array.isArray(srvData) || srvData.length === 0) continue;
-            const servers = srvData
+            const servers = [];
+            // Reproductores propios: video[N] = '<iframe src=".../jkplayer/um?e=…">'
+            // y su nombre está en <a id="btn-show-N">Desu</a>.
+            const $ = cheerio.load(data);
+            const seenNative = new Set();
+            for (const m of String(data).matchAll(/video\[(\d+)\]\s*=\s*'<iframe[^>]*\ssrc="([^"]+)"/g)) {
+                const name = $(`#btn-show-${m[1]}`).first().text().trim();
+                if (!JK_NATIVE_OK.includes(name) || seenNative.has(name)) continue;
+                seenNative.add(name);
+                servers.push({ name, url: m[2], lang: 'sub' });
+            }
+            const srvData = parseJsVar(data, 'servers') || [];
+            servers.push(...srvData
                 .filter(s => JK_EMBED_OK.includes(s.server))
                 .map(s => {
                     let url = '';
                     try { url = Buffer.from(s.remote, 'base64').toString('utf8'); } catch { /* remote inválido */ }
-                    return { name: s.server, url, lang: s.lang === 2 ? 'lat' : 'sub' };
+                    return { name: s.server, url: url.trim(), lang: s.lang === 2 ? 'lat' : 'sub' };
                 })
-                .filter(s => embedAllowed(s.url));
+                .filter(s => /^https?:\/\//.test(s.url) && embedAllowed(s.url)));
             if (servers.length > 0) return servers;
         }
         return [];
@@ -888,15 +935,25 @@ function toCard({ title, slug, image }) {
 /** Búsqueda multi-fuente → cards estilo Jikan. */
 async function searchCards(query) {
     const errors = [];
-    for (const key of ['animeflvar', 'tioanime', 'animeflv']) {
-        if (breakerOpen(key)) continue;
-        try {
-            const results = await searchProviders[key](query);
-            if (results.length > 0) return { data: results.map(toCard), source: key };
-            errors.push(`${key}: 0 resultados`);
-        } catch (e) {
-            errors.push(`${key}: ${e.message}`);
+    const trySources = async (q) => {
+        for (const key of ['animeflvar', 'tioanime', 'animeflv']) {
+            if (breakerOpen(key)) continue;
+            try {
+                const results = await searchProviders[key](q);
+                if (results.length > 0) return { data: results.map(toCard), source: key };
+                errors.push(`${key}: 0 resultados`);
+            } catch (e) {
+                errors.push(`${key}: ${e.message}`);
+            }
         }
+        return null;
+    };
+    const direct = await trySources(query);
+    if (direct) return direct;
+    // Nada con ese nombre: probar con el título japonés/inglés (AniList)
+    for (const alt of await altTitles(query)) {
+        const r = await trySources(alt);
+        if (r) return r;
     }
     // Último recurso: Jikan
     try {
@@ -1058,7 +1115,7 @@ async function browseCards(opts = {}) {
  * listas de episodios. Así una serie larga en emisión (p.ej. One Piece)
  * conserva los episodios antiguos Y los recién emitidos.
  */
-async function infoMerged(title) {
+async function infoMerged(title, _isRetry = false) {
     // Compañera de fusión: TioAnime (catálogo profundo, sinopsis en español).
     // El AnimeFLV clásico solo se usa si ha respondido bien en esta instancia
     // (hoy está caído; así no se paga su timeout en cada arranque en frío).
@@ -1115,6 +1172,14 @@ async function infoMerged(title) {
         return { data: better.d, source: better.k };
     }
 
+    // Ninguna lo tiene con ese nombre: reintentar con el título alternativo
+    // (p.ej. "Solo Leveling" → "Ore dake Level Up na Ken").
+    if (!_isRetry) {
+        for (const alt of await altTitles(title)) {
+            try { return await infoMerged(alt, true); } catch (e) { errors.push(`alt "${alt}": sin resultados`); }
+        }
+    }
+
     // Ambos fallaron: cadena de respaldo (SOURCE_ORDER.info)
     try {
         return await scrapeWithFallback('info-fallback-chain', title);
@@ -1124,12 +1189,73 @@ async function infoMerged(title) {
 }
 
 /**
+ * VIDEOS con fusión: consulta TODAS las fuentes a la vez y junta sus
+ * servidores. Antes se usaba solo la primera fuente que respondía, así que
+ * si esa traía un único servidor (o uno roto) el episodio quedaba cojo.
+ * Cada servidor lleva `source` (de qué web salió). Máximo 2 por host.
+ */
+const VIDEO_SOURCE_TIMEOUT = 9000;
+const MAX_SERVERS = 14;
+
+function embedHost(url) {
+    try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; }
+}
+
+async function videosMerged(slug, episode) {
+    const keys = SOURCE_ORDER.videos.filter(k => !breakerOpen(k));
+    const errors = [];
+    const results = await Promise.all(keys.map(k => Promise.race([
+        videoProviders[k](slug, episode),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('lenta, descartada')), VIDEO_SOURCE_TIMEOUT)),
+    ]).then(list => ({ k, list: list || [] }), e => { errors.push(`${k}: ${e.message}`); return { k, list: [] }; })));
+
+    // Nombre presentable: "filemoon" → "Filemoon"; si la fuente no da un
+    // nombre usable (vacío o un trozo de URL) se usa el host del embed.
+    const niceName = (s, host) => {
+        let n = (s.name || '').trim();
+        if (!n || /[\/.]/.test(n) || n.length > 18) n = host.split('.').slice(-2, -1)[0] || host;
+        return n.charAt(0).toUpperCase() + n.slice(1);
+    };
+    const merged = [];
+    const seenUrl = new Set();
+    const perHost = {};
+    const nameCount = {};
+    for (const { k, list } of results) {
+        for (const s of list) {
+            s.url = s.url.replace(/^http:\/\//, 'https://');
+            const host = embedHost(s.url);
+            if (!host || seenUrl.has(s.url)) continue;
+            s.name = niceName(s, host);
+            // Los reproductores propios de JKAnime comparten host: no se limitan.
+            const hostKey = host.endsWith('jkanime.net') ? `${host}:${s.name}` : `${host}:${s.lang}`;
+            perHost[hostKey] = (perHost[hostKey] || 0) + 1;
+            if (perHost[hostKey] > 2) continue;
+            seenUrl.add(s.url);
+            const nk = `${s.name.toLowerCase()}:${s.lang}`;
+            nameCount[nk] = (nameCount[nk] || 0) + 1;
+            merged.push({ ...s, name: nameCount[nk] > 1 ? `${s.name} ${nameCount[nk]}` : s.name, source: k });
+        }
+    }
+    if (merged.length === 0) {
+        const err = new Error(`Ninguna fuente tiene servidores → ${errors.join(' | ') || 'todas vacías'}`);
+        err.allFailed = true;
+        throw err;
+    }
+    const last = s => (LAST_RESORT_EMBEDS.some(h => s.url.includes(h)) ? 1 : 0);
+    merged.sort((a, b) => last(a) - last(b)); // sort estable: respeta el orden de fuentes
+    const top = merged.slice(0, MAX_SERVERS);
+    const used = [...new Set(top.map(s => s.source))];
+    return { data: top, source: used.join('+') };
+}
+
+/**
  * Prueba las fuentes de `capability` en orden hasta que una devuelva
  * datos. Devuelve { data, source }. Lanza con el detalle de todos los
  * fallos si ninguna funciona.
  */
 async function scrapeWithFallback(capability, ...args) {
     if (capability === 'info') return infoMerged(...args);
+    if (capability === 'videos') return videosMerged(...args);
     if (capability === 'info-fallback-chain') capability = 'info';
     const providersMap = { airing: airingProviders, recent: recentProviders, info: infoProviders, videos: videoProviders }[capability];
     const errors = [];
