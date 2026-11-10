@@ -229,3 +229,36 @@ episodios va justo debajo del vídeo. Escritorio no cambia.
 - `ANUNCIOS.md` — cómo quitar anuncios (app, móvil, PC) y cómo ampliar la lista.
 - `FIREBASE.md` — conectar Firestore (gratis) para comentarios/sincronización.
 - `README.md` — original del proyecto.
+
+## Cambios de noviembre 2026 (2ª tanda): fuentes bloqueadas y respaldos
+
+**Regla general:** JKAnime, ZonaTMO y SkyNovels devuelven **HTTP 403 a las IPs
+de Vercel** (en local, con `npm run dev`, responden). No se rodea ese bloqueo
+con proxys/relays: cada sección tiene una fuente de respaldo que sí responde.
+Diagnóstico en vivo: `/api/anime/status`, `/api/manga/status`,
+`/api/novels/status`.
+
+- **Anime — servidores**: `/api/anime/videos` fusiona TODAS las fuentes
+  (`videosMerged` en `animeSources.js`); cada servidor lleva `source`. Embeds
+  rotos filtrados en `BLOCKED_EMBEDS`. JKAnime aporta sus reproductores propios
+  (Desu, Magi) cuando responde, es decir, en local. Detalle en `SOURCES.md`.
+- **Anime — marcador** (`anime/ver.html` → `Marker`, datos en `MiLista.setMark`
+  / `getMark`, clave localStorage `anv_marks`, sincronizada con la cuenta): los
+  reproductores son iframes de terceros y NO informan del minuto, así que el
+  marcador cuenta el tiempo con el episodio en marcha (arranca al tocar el
+  vídeo, se detiene al cambiar de pestaña, botones Pausar y ±30 s). Al volver
+  muestra "lo dejaste en el minuto X". No puede adelantar el vídeo por ti.
+  También se recuerda el último servidor elegido (`anv_fav_server`).
+- **Anime — títulos**: `altTitles()` pregunta a AniList el título romaji/inglés
+  cuando la búsqueda o la ficha no encuentran nada.
+- **Manga — Manga Oni** (`api/_lib/mangaoni.js`, prefijo `mo:`): fuente de
+  rescate. Si una ficha llega SIN capítulos (Mangalect lista Solo Leveling
+  vacío), `loadInfo()` busca el mismo título en Manga Oni y usa sus capítulos.
+  También completa la búsqueda. Imágenes planas, lector propio.
+- **Novelas — DevilNovels** (`api/_lib/devilnovels.js`, prefijo `dn:`): API
+  REST de WordPress abierta. novela = categoría, capítulo = post, portada y
+  sinopsis = página con el mismo slug. Si SkyNovels no responde, los listados
+  salen de aquí; con las dos vivas (local) se mezclan. Las novelas con id
+  numérico (SkyNovels) muestran "la fuente no responde" en producción.
+- **Vercel no despliega producción si `dev` y `main` se suben a la vez con el
+  mismo commit** (solo crea el Preview). Subir primero `main` y luego `dev`.

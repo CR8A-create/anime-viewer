@@ -79,7 +79,7 @@
                 const res = await fetch(`${API}/novels/info?id=${id}`);
                 data = await res.json();
             } catch { document.getElementById('title').textContent = 'Error de conexión.'; return; }
-            if (!data.success) { document.getElementById('title').textContent = 'No se encontró esta novela.'; return; }
+            if (!data.success) { document.getElementById('title').textContent = data.message || 'No se encontró esta novela.'; return; }
 
             novel = data.data;
             chapters = data.chapters || [];

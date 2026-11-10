@@ -8,6 +8,9 @@
 //
 // Los ids de ZonaTMO llevan prefijo "zt:"; el enrutado interno decide
 // la fuente por ese prefijo (así conviven con ids antiguos de MangaDex).
+// "ml:" = Mangalect y "mo:" = Manga Oni (api/_lib/mangaoni.js), que además
+// RESCATA los capítulos cuando la fuente principal devuelve una ficha vacía
+// (Mangalect lista p. ej. Solo Leveling sin ningún capítulo).
 //
 // Endpoints (shapes compatibles con el frontend):
 //   GET /api/manga/popular?type=manga|manhwa|comic&page=1
@@ -20,6 +23,7 @@ const { cors, getCache, setCache } = require('../_lib/shared');
 const axios = require('axios');
 const zt = require('../_lib/zonatmo');
 const ml = require('../_lib/mangalect');
+const mo = require('../_lib/mangaoni');
 
 // ---------- MangaDex (respaldo) ----------
 const MD = 'https://api.mangadex.org';
@@ -56,6 +60,33 @@ const MD_ORIGIN = { manhwa: ['ko'], webtoon: ['ko'], manga: ['ja'] };
 // ¿a qué fuente pertenece el id?
 const isZt = (id) => typeof id === 'string' && id.startsWith('zt:');
 const isMl = (id) => typeof id === 'string' && id.startsWith('ml:');
+const isMo = mo.isMo;
+const isScraped = (id) => isZt(id) || isMl(id) || isMo(id);
+const libOf = (id) => (isZt(id) ? zt : (isMl(id) ? ml : mo));
+const normT = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+
+/**
+ * Ficha de una fuente scrapeada. Si llega SIN capítulos, se busca el mismo
+ * título en Manga Oni y se usan los suyos (los ids de capítulo pasan a ser
+ * "mo:…" y el lector los resuelve solo).
+ */
+async function loadInfo(id) {
+    const info = await libOf(id).mangaInfo(id);
+    if ((!info.chapters || info.chapters.length === 0) && !isMo(id) && info.title) {
+        try {
+            const alt = await mo.findByTitle(info.title);
+            if (alt && alt.chapters.length > 0) {
+                info.chapters = alt.chapters;
+                info.description = info.description || alt.description;
+                info.cover = info.cover || alt.cover;
+                if (!info.genres || info.genres.length === 0) info.genres = alt.genres;
+                info.status = info.status || alt.status;
+                info.rescuedFrom = 'mangaoni';
+            }
+        } catch (e) { console.warn('mo rescue:', e.message); }
+    }
+    return info;
+}
 
 module.exports = async (req, res) => {
     if (cors(req, res)) return;
@@ -106,7 +137,13 @@ module.exports = async (req, res) => {
             let data = [];
             try { data = await zt.search(q); } catch (e) { console.warn('zt search:', e.message); }
             if (data.length === 0) {
-                try { data = await ml.search(q); } catch (e) { console.warn('ml search:', e.message); }
+                // Mangalect y Manga Oni a la vez; de Oni solo lo que Mangalect no tenga
+                const [mlRes, moRes] = await Promise.all([
+                    ml.search(q).catch(e => { console.warn('ml search:', e.message); return []; }),
+                    mo.search(q).catch(e => { console.warn('mo search:', e.message); return []; }),
+                ]);
+                const have = new Set(mlRes.map(m => normT(m.title)));
+                data = [...mlRes, ...moRes.filter(m => !have.has(normT(m.title)))];
             }
             if (data.length === 0) {
                 try {
@@ -130,8 +167,8 @@ module.exports = async (req, res) => {
             const cached = getCache(cacheKey);
             if (cached) return res.json(cached);
 
-            if (isZt(id) || isMl(id)) {
-                const info = await (isZt(id) ? zt : ml).mangaInfo(id);
+            if (isScraped(id)) {
+                const info = await loadInfo(id);
                 const estado = { publicandose: 'En curso', finalizado: 'Finalizado', cancelado: 'Cancelado', pausado: 'En pausa' };
                 const result = {
                     success: true,
@@ -166,11 +203,11 @@ module.exports = async (req, res) => {
             const cached = getCache(cacheKey);
             if (cached) return res.json(cached);
 
-            if (isZt(id) || isMl(id)) {
+            if (isScraped(id)) {
                 // Reutiliza la ficha cacheada si existe (info trae _chapters)
                 const infoCached = getCache(`manga2:info:${id}`);
                 let list = infoCached && infoCached._chapters;
-                if (!list) list = (await (isZt(id) ? zt : ml).mangaInfo(id)).chapters;
+                if (!list) list = (await loadInfo(id)).chapters;
                 const chapters = list.map(c => ({ id: c.id, chapter: c.number, title: c.title, pages: null, lang: 'es' }));
                 const result = { success: true, chapters };
                 setCache(cacheKey, result, 30 * 60 * 1000);
@@ -206,8 +243,8 @@ module.exports = async (req, res) => {
             const cached = getCache(cacheKey);
             if (cached) return res.json(cached);
 
-            if (isZt(chapter) || isMl(chapter)) {
-                const pages = await (isZt(chapter) ? zt : ml).pages(chapter);
+            if (isScraped(chapter)) {
+                const pages = await libOf(chapter).pages(chapter);
                 const result = { success: true, pages };
                 setCache(cacheKey, result, 20 * 60 * 1000);
                 return res.json(result);
@@ -261,6 +298,7 @@ module.exports = async (req, res) => {
             const probes = [
                 ['zonatmo', async () => (await zt.browse('manga', 1)).length],
                 ['mangalect', async () => (await ml.browse('manga', 1)).length],
+                ['mangaoni', async () => (await mo.search('one piece')).length],
                 ['mangadex', async () => {
                     const md = await mdGet('/manga', { limit: 1, 'availableTranslatedLanguage[]': ES, 'contentRating[]': RATING });
                     return (md.data.data || []).length;
