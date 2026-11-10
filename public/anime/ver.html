@@ -931,9 +931,12 @@
                 if (_lastApiEp === ep && _allServers.some(s => s.source === 'jkanime')) return;
                 const jk = await NativeSources.jkServers(currentSlug, ep);
                 if (currentEpisodeNumber !== ep || jk.length === 0) return;   // cambió de episodio mientras tanto
-                const have = new Set(jk.map(s => s.url));
-                const rest = (_lastApiEp === ep ? _allServers : []).filter(s => s.source !== 'jkanime' && !have.has(s.url));
-                window.updateServerButtons([...jk, ...rest]);
+                // De la API solo se conservan los servidores que JKAnime no trae ya
+                // (mismo host con otro enlace = botones repetidos); 14 como máximo.
+                const base = n => String(n).replace(/\s+\d+$/, '').toLowerCase();
+                const have = new Set(jk.map(s => base(s.name) + ':' + s.lang));
+                const rest = (_lastApiEp === ep ? _allServers : []).filter(s => !have.has(base(s.name) + ':' + s.lang));
+                window.updateServerButtons([...jk, ...rest].slice(0, 14));
             } catch (e) { console.warn('JKAnime desde el dispositivo:', e.message); }
         }
 

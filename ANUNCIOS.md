@@ -34,6 +34,15 @@ A partir de esta versión la app carga la web publicada
 así que **los cambios de la web llegan solos** sin recompilar. Solo hay que
 recompilar si cambias algo nativo (por ejemplo, la lista de bloqueo).
 
+### Extra de la app: JKAnime (Desu) y manga que la web no puede cargar
+
+JKAnime y Manga Oni rechazan (403) a nuestro servidor, pero no a un móvil.
+Dentro de la app esas páginas se piden desde el propio teléfono
+(`public/assets/js/native-sources.js`, HTTP nativo de Capacitor), así que en
+la app aparecen los servidores de JKAnime —**Desu** primero, que recuerda el
+minuto por sí solo— y los capítulos de mangas como Solo Leveling. En el
+navegador normal eso no es posible. Vale con el APK 3.0; no hay que recompilar.
+
 ### Si aún se cuela algún anuncio en la app
 
 1. Fíjate en el dominio al que intenta llevarte (o conéctalo por USB y mira

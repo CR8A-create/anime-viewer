@@ -264,3 +264,13 @@ Diagnóstico en vivo: `/api/anime/status`, `/api/manga/status`,
   numérico (SkyNovels) muestran "la fuente no responde" en producción.
 - **Vercel no despliega producción si `dev` y `main` se suben a la vez con el
   mismo commit** (solo crea el Preview). Subir primero `main` y luego `dev`.
+- **Fuentes desde el dispositivo (solo app Android)**:
+  `public/assets/js/native-sources.js` (`window.NativeSources`). Cuando la
+  página corre dentro de la app (`Capacitor.isNativePlatform()`), pide JKAnime
+  y Manga Oni con `Capacitor.nativePromise('CapacitorHttp','request',…)` desde
+  el propio móvil y los analiza con expresiones regulares (mismos selectores
+  que `animeSources.js` → jkanime y `mangaoni.js`: si cambian, tocar ambos).
+  Lo usan `anime/ver.html` (`addDeviceServers`), `manga/manga.html` y
+  `manga/leer.html`. Probado en el emulador (AVD `Medium_Phone_API_36.1`):
+  `adb forward tcp:9222 localabstract:webview_devtools_remote_<pid>` permite
+  inspeccionar el WebView de la app por DevTools.
