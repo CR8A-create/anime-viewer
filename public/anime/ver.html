@@ -684,6 +684,7 @@
     <script src="../assets/js/auth.js?v=2"></script>
     <script src="../assets/js/mi-lista.js?v=4"></script>
     <script src="../assets/js/anime-logic.js?v=7"></script>
+    <script src="../assets/js/native-sources.js?v=1"></script>
     <script>
         // ── Volver a la ficha del anime ───────────────────────────
         function goBackToDetail() {
@@ -704,8 +705,10 @@
 
         // Override anime-logic's updateServerButtons to add language tabs
         const _originalUpdateServerButtons = window.updateServerButtons;
+        let _lastApiEp = null;
         window.updateServerButtons = function(servers) {
             _allServers = servers;
+            _lastApiEp = currentEpisodeNumber;
             const latServers = servers.filter(s => s.lang === 'lat');
             const subServers = servers.filter(s => s.lang === 'sub');
             const tabLat = document.getElementById('tabLat');
@@ -911,8 +914,28 @@
                     url: `ver.html?id=${encodeURIComponent(p.get('id') || t)}&title=${encodeURIComponent(t)}&ep=${n}`,
                 });
             } catch { /* localStorage no disponible */ }
-            return _origFetchVideoLinks(n);
+            const done = _origFetchVideoLinks(n);
+            addDeviceServers(n, done);
+            return done;
         };
+
+        // En la app Android: JKAnime bloquea a nuestro servidor pero no al
+        // móvil, así que sus servidores (Desu, Magi…) se piden desde el propio
+        // dispositivo y se ponen delante de los que dio la API.
+        async function addDeviceServers(ep, apiDone) {
+            if (!window.NativeSources || !NativeSources.available()) return;
+            try {
+                await apiDone;
+                if (currentEpisodeNumber !== ep || !currentSlug) return;
+                // Si la API ya trajo JKAnime (desarrollo local) no hay nada que añadir
+                if (_lastApiEp === ep && _allServers.some(s => s.source === 'jkanime')) return;
+                const jk = await NativeSources.jkServers(currentSlug, ep);
+                if (currentEpisodeNumber !== ep || jk.length === 0) return;   // cambió de episodio mientras tanto
+                const have = new Set(jk.map(s => s.url));
+                const rest = (_lastApiEp === ep ? _allServers : []).filter(s => s.source !== 'jkanime' && !have.has(s.url));
+                window.updateServerButtons([...jk, ...rest]);
+            } catch (e) { console.warn('JKAnime desde el dispositivo:', e.message); }
+        }
 
         function jumpToEpisode() {
             const val = parseInt(document.getElementById('epJumpInput').value, 10);

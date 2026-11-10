@@ -60,6 +60,7 @@
 
     <script src="../assets/js/auth.js?v=2"></script>
     <script src="../assets/js/mi-lista.js?v=4"></script>
+    <script src="../assets/js/native-sources.js?v=1"></script>
     <script>
         const VERCEL_PROJECT = 'pagina-ver-anime';
         const API = (location.protocol === 'http:' && (location.hostname === 'localhost' || location.hostname === '127.0.0.1'))
@@ -115,6 +116,13 @@
             });
 
             chapters = (chData.success && chData.chapters) ? chData.chapters : [];
+
+            // App Android: si la ficha llega sin capítulos, se buscan en Manga
+            // Oni desde el propio móvil (a nuestro servidor le devuelve 403).
+            if (chapters.length === 0 && window.NativeSources && NativeSources.available()) {
+                try { chapters = await NativeSources.mangaChapters(manga.title); }
+                catch (e) { console.warn('Manga Oni desde el dispositivo:', e.message); }
+            }
 
             renderCtas();
             renderChapters();
