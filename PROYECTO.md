@@ -254,7 +254,9 @@ Diagnóstico en vivo: `/api/anime/status`, `/api/manga/status`,
 - **Manga — Manga Oni** (`api/_lib/mangaoni.js`, prefijo `mo:`): fuente de
   rescate. Si una ficha llega SIN capítulos (Mangalect lista Solo Leveling
   vacío), `loadInfo()` busca el mismo título en Manga Oni y usa sus capítulos.
-  También completa la búsqueda. Imágenes planas, lector propio.
+  También completa la búsqueda. Imágenes planas, lector propio. **OJO: Manga
+  Oni también devuelve 403 a Vercel**, así que el rescate solo funciona en
+  local; en producción esas fichas siguen mostrando el botón de ZonaTMO.
 - **Novelas — DevilNovels** (`api/_lib/devilnovels.js`, prefijo `dn:`): API
   REST de WordPress abierta. novela = categoría, capítulo = post, portada y
   sinopsis = página con el mismo slug. Si SkyNovels no responde, los listados

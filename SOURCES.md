@@ -149,7 +149,8 @@ a los hosts de terceros y pueden caducar.
   Motivo: animeflv.ar pasó a servir como primer servidor
   `player.zilla-networks.com/m3u8/<id>`, que es una playlist HLS en crudo cuyos
   segmentos solo se entregan a animeflv.ar → dentro de nuestro iframe salía en
-  blanco. Ese patrón está en `BLOCKED_EMBEDS`, junto con Amus/Mepu de TioAnime
+  blanco (y su variante `/play/<id>` se queda en negro). Todo `zilla-networks.com`
+  está en `BLOCKED_EMBEDS`, junto con Amus/Mepu de TioAnime
   (`v.tioanime.com/embed.php`, 404) y StreamSB (muerto).
 - **JKAnime devuelve 403 a las IPs de Vercel** (igual que ZonaTMO y SkyNovels).
   En local (`npm run dev`) responde y aporta Desu/Magi + 8 servidores; en

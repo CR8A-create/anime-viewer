@@ -732,10 +732,11 @@ async function fetchAnimePage(sourceKey, title) {
 // ============================================================
 // Embeds que NO sirven dentro de nuestro iframe:
 //  - mega.nz / mail.ru: no se dejan incrustar.
-//  - zilla-networks.com/m3u8/: es una playlist HLS en crudo (no una página)
-//    y sus segmentos solo se sirven a animeflv.ar → pantalla en blanco.
+//  - zilla-networks.com (el "HLS"/"Video" de animeflv.ar): /m3u8/ es una
+//    playlist en crudo y /play/ solo funciona dentro de animeflv.ar → en
+//    nuestro iframe ambos se quedan en negro.
 //  - v.tioanime.com/embed.php (Amus/Mepu) y embedsb.com (StreamSB): muertos.
-const BLOCKED_EMBEDS = ['mega.nz', 'mail.ru', 'zilla-networks.com/m3u8/', 'v.tioanime.com/embed', 'embedsb.com', 'sbembed', 'streamsb'];
+const BLOCKED_EMBEDS = ['mega.nz', 'mail.ru', 'zilla-networks.com', 'v.tioanime.com/embed', 'embedsb.com', 'sbembed', 'streamsb'];
 const JK_EMBED_OK = ['Streamtape', 'VOE', 'Vidhide', 'Streamwish', 'Filemoon', 'Doodstream', 'Mp4upload', 'Mixdrop', 'YourUpload', 'Uqload'];
 // Reproductores PROPIOS de JKAnime que se dejan incrustar. "Desu" recuerda por
 // sí solo el minuto en el que dejaste el episodio. ("Desuka" lleva la IP de
