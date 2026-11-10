@@ -14,7 +14,7 @@ una devuelva datos (`SOURCE_ORDER` en `animeSources.js`):
 | `airing` (en emisión) | **AnimeFLV.ar** → TioAnime → AnimeFLV clásico → Jikan |
 | `recent` (últimos episodios) | **AnimeFLV.ar** → TioAnime → MonosChinos → AnimeFLV clásico |
 | `info` (detalle + episodios) | **AnimeFLV.ar + TioAnime EN PARALELO (fusión)** → TioAnime → Jikan |
-| `videos` (servidores de un episodio) | **AnimeFLV.ar** → TioAnime → JKAnime → MonosChinos → AnimeFLV clásico |
+| `videos` (servidores de un episodio) | **TODAS a la vez y fusionadas** (`videosMerged`): JKAnime + AnimeFLV.ar + TioAnime + MonosChinos (+ clásico si responde). Máx. 14 servidores, 2 por host |
 | `top` (directorio/populares) | **AnimeFLV.ar** (`/anime/?order=&genre[]=&type=&status=&page=`, cards `.bsx`, siguiente página = `.hpage a.r`) → clásico → Jikan |
 
 > **Nov. 2026:** el AnimeFLV clásico (www3/www4.animeflv.net) NO RESPONDE.
@@ -97,6 +97,7 @@ esa función. Referencia rápida de lo que se parsea hoy (julio 2026):
 | TioAnime | `/ver/{slug}-{ep}` | `var videos = [[nombre, url], ...]` |
 | JKAnime | `/buscar/{q}/` | `.anime__item` → `h5`, href |
 | JKAnime | `/{slug}/{ep}/` | `var servers = [{server, remote(base64), lang}]` (lang 2 = latino) |
+| JKAnime | `/{slug}/{ep}/` | Reproductores propios: `video[N] = '<iframe src="…/jkplayer/um?e=…">'` + nombre en `#btn-show-N` (**Desu**, Magi). Se incrustan tal cual; Desu recuerda el minuto por sí solo |
 | MonosChinos | `/` (home) | `article a[href*=/ver/]` → href `/ver/{slug}-episodio-{n}`, `img[alt]` (las imágenes son lazy y suelen venir vacías) |
 | MonosChinos | `/buscar?q=` | `<article>` → `h3`/`h2`, href `/anime/{slug}` (slugs terminan en `-sub-espanol`) |
 | MonosChinos | `/ver/{slug}-episodio-{n}` | `[data-player]` con URL del embed en base64 |
@@ -141,3 +142,19 @@ Este proyecto scrapea sitios de terceros y reproduce sus embeds. Úsalo solo de
 forma personal/privada (tú + tus amigos), no lo publicites ni lo monetices, y
 respeta los términos de los sitios de origen. Los enlaces de video pertenecen
 a los hosts de terceros y pueden caducar.
+
+## Notas de noviembre 2026
+
+- **`videos` fusiona todas las fuentes** (antes: solo la primera que respondía).
+  Motivo: animeflv.ar pasó a servir como primer servidor
+  `player.zilla-networks.com/m3u8/<id>`, que es una playlist HLS en crudo cuyos
+  segmentos solo se entregan a animeflv.ar → dentro de nuestro iframe salía en
+  blanco. Ese patrón está en `BLOCKED_EMBEDS`, junto con Amus/Mepu de TioAnime
+  (`v.tioanime.com/embed.php`, 404) y StreamSB (muerto).
+- **JKAnime devuelve 403 a las IPs de Vercel** (igual que ZonaTMO y SkyNovels).
+  En local (`npm run dev`) responde y aporta Desu/Magi + 8 servidores; en
+  producción su hueco lo cubren las otras tres fuentes. No se rodea el bloqueo.
+- **Títulos alternativos**: si ni la búsqueda ni `info` encuentran un título,
+  se pregunta a AniList (`altTitles`) por el romaji/inglés y se reintenta
+  ("Solo Leveling" → "Ore dake Level Up na Ken").
+- Cada servidor de la respuesta lleva `source` (fuente de la que salió).
